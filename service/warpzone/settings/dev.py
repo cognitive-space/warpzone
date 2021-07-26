@@ -1,4 +1,4 @@
-print('Using Production Settings')
+print('Using Development Settings')
 
 from warpzone.settings.base import *
 
