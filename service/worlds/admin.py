@@ -1,3 +1,9 @@
 from django.contrib import admin
 
-# Register your models here.
+from worlds.models import Pipeline
+
+
+@admin.register(Pipeline)
+class PipelineAdmin(admin.ModelAdmin):
+    list_display = ('name', 'slug', 'workers')
+    search_fields = ('name', 'slug', 'worker_command')

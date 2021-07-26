@@ -10,7 +10,7 @@ class Pipeline(models.Model):
     worker_command = models.CharField(max_length=512)
     workers = models.PositiveSmallIntegerField()
 
-    envs = EncryptedTextField(help_text='use .env format')
+    envs = EncryptedTextField(help_text='use .env format', blank=True, null=True)
 
     def __str__(self):
         return self.name
