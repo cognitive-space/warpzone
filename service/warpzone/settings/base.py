@@ -25,8 +25,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ['SECRET_KEY']
 
+FERNET_KEYS = [SECRET_KEY]
 
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost')
+
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost').split(',')
 
 # Application definition
 
@@ -37,6 +39,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
+    'account',
+    'worlds',
 ]
 
 MIDDLEWARE = [

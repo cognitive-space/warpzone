@@ -13,6 +13,7 @@ dependencies = [
     "psycopg2-binary~=2.9",
     "gunicorn~=20.1",
     "ipython~=7.25",
+    "django-fernet-fields~=0.6",
 ]
 requires-python = ">=3.9"
 dynamic = ["classifiers"]
