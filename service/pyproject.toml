@@ -16,6 +16,8 @@ dependencies = [
     "django-fernet-fields~=0.6",
     "kubernetes~=17.17",
     "PyYAML~=5.4",
+    "loguru~=0.5",
+    "django-json-widget~=1.1",
 ]
 requires-python = ">=3.9"
 dynamic = ["classifiers"]
