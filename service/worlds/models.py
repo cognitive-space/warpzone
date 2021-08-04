@@ -1,3 +1,4 @@
+import io
 import time
 
 from django.db import models
@@ -5,6 +6,7 @@ from django.core.serializers.json import DjangoJSONEncoder
 from django.contrib.postgres.fields import ArrayField
 
 import yaml
+from dotenv import dotenv_values
 from loguru import logger
 from fernet_fields import EncryptedTextField
 
@@ -43,6 +45,15 @@ class Pipeline(models.Model):
         job.save()
         job.run(wait=wait)
         return job
+
+    def env_list(self):
+        ret = []
+        if self.envs:
+            stream = io.StringIO(self.envs)
+            for name, value in dotenv_values(stream=stream).items():
+                ret.append({'name': name, 'value': value})
+
+        return ret
 
 
 class Job(models.Model):
@@ -96,15 +107,17 @@ class Job(models.Model):
             'metadata': {'name': self.job_name},
             'spec': {
                 'parallelism': self.parallelism,
+                'ttlSecondsAfterFinished': 60 * 60, # cleanup pod after 1 hour
                 'template': {
                     'spec': {
-                        'imagePullSecrets': [{'name': 'regcred'}],
+                        'imagePullSecrets': [{'name': 'regcred'}], # todo: abstract for user input
                         'containers': [{
                             'name': self.job_name,
                             'image': self.image,
-                            'command': self.command
+                            'command': self.command,
+                            'env': self.pipeline.env_list(),
                         }],
-                'restartPolicy': 'Never'}
+                'restartPolicy': 'OnFailure'}
             },
             'backoffLimit': 4}
         }
