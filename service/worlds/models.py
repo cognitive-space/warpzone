@@ -98,6 +98,7 @@ class Job(models.Model):
                 'parallelism': self.parallelism,
                 'template': {
                     'spec': {
+                        'imagePullSecrets': [{'name': 'regcred'}],
                         'containers': [{
                             'name': self.job_name,
                             'image': self.image,
@@ -173,4 +174,4 @@ class Job(models.Model):
 
         self.save()
 
-
+# gitlab.cog.space:5050/cognitive-space/roci:v1.7-predasar
