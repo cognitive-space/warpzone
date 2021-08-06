@@ -11,6 +11,7 @@ from loguru import logger
 from fernet_fields import EncryptedTextField
 
 from kubernetes import client as kube_apis
+from kubernetes import watch as kube_watch
 from kubernetes.client import ApiClient, Configuration
 from kubernetes.client.exceptions import ApiException
 from kubernetes.config.kube_config import _get_kube_config_loader
@@ -37,15 +38,23 @@ class Pipeline(models.Model):
         return ApiClient(configuration=client_config)
 
     def run_job(self, image, job_command, wait=False):
-        qjob = Job(
-            command=self.worker_command.split(' '),
+        qjob = Job.objects.filter(
             image=image,
-            parallelism=self.workers,
+            status__in=Job.STATUS_RUNNING,
             pipeline=self,
-            job_type='queue',
-        )
-        qjob.save()
-        qjob.run()
+            job_type='queue'
+        ).first()
+
+        if qjob is None:
+            qjob = Job(
+                command=self.worker_command.split(' '),
+                image=image,
+                parallelism=self.workers,
+                pipeline=self,
+                job_type='queue',
+            )
+            qjob.save()
+            qjob.run()
 
         time.sleep(0.1)
 
@@ -81,6 +90,9 @@ class Job(models.Model):
         ('completed', 'Completed'),
     )
 
+    STATUS_RUNNING = ['active', 'created', 'submitted']
+    STATUS_DONE = ['completed', 'killed', 'failed']
+
     JOB_TYPES = (
         ('queue', 'Queue'),
         ('job', 'Job'),
@@ -101,6 +113,8 @@ class Job(models.Model):
     pipeline = models.ForeignKey(Pipeline, on_delete=models.CASCADE)
 
     status = models.CharField(max_length=25, choices=STATUS, default='created')
+
+    pods = ArrayField(models.CharField(max_length=255), blank=True, null=True)
 
     log_data = models.JSONField(blank=True, null=True)
 
@@ -159,7 +173,6 @@ class Job(models.Model):
     def job_status(self, api):
         response = api.read_namespaced_job_status(name=self.job_name, namespace="default")
         status = response.status
-        print(status)
 
         logger.info("Job Status: {}: Active={}, Succeeded={}, Failed={}", self.id, status.active, status.succeeded, status.failed)
         if status.active:
@@ -242,4 +255,5 @@ class Job(models.Model):
         )
         return response
 
-# gitlab.cog.space:5050/cognitive-space/roci:v1.7-predasar
+    def watch_pod(self):
+        pass

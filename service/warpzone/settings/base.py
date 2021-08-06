@@ -155,3 +155,5 @@ HUEY = {
         'health_check_interval': 1,
     },
 }
+
+CONTAINER_REPO = os.environ.get('CONTAINER_REPO', None)
