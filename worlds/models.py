@@ -201,7 +201,10 @@ class Job(models.Model):
             client = self.pipeline.kube_client()
 
         batch_v1 = kube_apis.BatchV1Api(client)
+
         while 1:
+            self.pods = self.get_pods(client)
+
             try:
                 stats = self.job_status(batch_v1)
 
@@ -228,16 +231,23 @@ class Job(models.Model):
 
             time.sleep(3)
 
-    def save_logs(self, client):
+    def get_pods(self, client):
         core_v1 = kube_apis.CoreV1Api(client)
         uid = self.job_definition['metadata']['labels']["controller-uid"]
         pods_list = core_v1.list_namespaced_pod(
             namespace="default", label_selector=f"controller-uid={uid}", timeout_seconds=10)
         logger.info('Pod Count: {}', len(pods_list.items))
 
-        self.log_data = []
+        ret = []
         for pod in pods_list.items:
-            pod_name = pod.metadata.name
+            ret.append(pod.metadata.name)
+
+        return ret
+
+    def save_logs(self, client):
+        core_v1 = kube_apis.CoreV1Api(client)
+        self.log_data = []
+        for pod_name in self.get_pods(client):
             log_response = core_v1.read_namespaced_pod_log(
                 name=pod_name, namespace="default", _return_http_data_only=True, _preload_content=False)
             self.log_data.append(log_response.data.decode())
@@ -255,5 +265,15 @@ class Job(models.Model):
         )
         return response
 
-    def watch_pod(self):
-        pass
+    def watch_pod(self, pod_name, client=None, log=False):
+        if client is None:
+            client = self.pipeline.kube_client()
+
+        v1 = kube_apis.CoreV1Api(client)
+        w = kube_watch.Watch()
+        for e in w.stream(v1.read_namespaced_pod_log, name=pod_name, namespace='default'):
+            if log:
+                print(e)
+
+            else:
+                yield e
