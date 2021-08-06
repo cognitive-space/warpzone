@@ -127,6 +127,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "huey"
+version = "2.3.2"
+summary = "huey, a little task queue"
+
+[[package]]
 name = "idna"
 version = "3.2"
 requires_python = ">=3.5"
@@ -299,6 +304,12 @@ requires_python = ">=2.7,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*"
 summary = "YAML parser and emitter for Python"
 
 [[package]]
+name = "redis"
+version = "3.5.3"
+requires_python = ">=2.7,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*"
+summary = "Python client for Redis key-value store"
+
+[[package]]
 name = "requests"
 version = "2.26.0"
 requires_python = ">=2.7,!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,!=3.5.*"
@@ -387,7 +398,7 @@ summary = "A small Python utility to set file creation time on Windows"
 
 [metadata]
 lock_version = "3.1"
-content_hash = "sha256:d4c24252ee7dc5171a8be17e160445e65f1c31db501a49182986f8fbc491eadf"
+content_hash = "sha256:7aec17ab8481c8d80861261f8beb87d9065703b66c368d1599e283b24e50ae9a"
 
 [metadata.files]
 "appnope 0.1.2" = [
@@ -542,6 +553,9 @@ content_hash = "sha256:d4c24252ee7dc5171a8be17e160445e65f1c31db501a49182986f8fbc
     {file = "gunicorn-20.1.0-py3-none-any.whl", hash = "sha256:9dcc4547dbb1cb284accfb15ab5667a0e5d1881cc443e0677b4882a4067a807e"},
     {file = "gunicorn-20.1.0.tar.gz", hash = "sha256:e0a968b5ba15f8a328fdfd7ab1fcb5af4470c28aaf7e55df02a99bc13138e6e8"},
 ]
+"huey 2.3.2" = [
+    {file = "huey-2.3.2.tar.gz", hash = "sha256:7176acb113850824490da5a31f328cc48a2002a59bfb396efbab8ecbd3573910"},
+]
 "idna 3.2" = [
     {file = "idna-3.2-py3-none-any.whl", hash = "sha256:14475042e284991034cb48e06f6851428fb14c4dc953acd9be9a5e95c7b6dd7a"},
     {file = "idna-3.2.tar.gz", hash = "sha256:467fbad99067910785144ce333826c71fb0e63a425657295239737f7ecd125f3"},
@@ -683,6 +697,10 @@ content_hash = "sha256:d4c24252ee7dc5171a8be17e160445e65f1c31db501a49182986f8fbc
     {file = "PyYAML-5.4.1-cp39-cp39-win32.whl", hash = "sha256:49d4cdd9065b9b6e206d0595fee27a96b5dd22618e7520c33204a4a3239d5b10"},
     {file = "PyYAML-5.4.1-cp39-cp39-win_amd64.whl", hash = "sha256:c20cfa2d49991c8b4147af39859b167664f2ad4561704ee74c1de03318e898db"},
     {file = "PyYAML-5.4.1.tar.gz", hash = "sha256:607774cbba28732bfa802b54baa7484215f530991055bb562efbed5b2f20a45e"},
+]
+"redis 3.5.3" = [
+    {file = "redis-3.5.3-py2.py3-none-any.whl", hash = "sha256:432b788c4530cfe16d8d943a09d40ca6c16149727e4afe8c2c9d5580c59d9f24"},
+    {file = "redis-3.5.3.tar.gz", hash = "sha256:0e7e0cfca8660dea8b7d5cd8c4f6c5e29e11f31158c0b0ae91a397f00e5a05a2"},
 ]
 "requests 2.26.0" = [
     {file = "requests-2.26.0-py2.py3-none-any.whl", hash = "sha256:6c1246513ecd5ecd4528a0906f910e8f0f9c6b8ec72030dc9fd154dc1a6efd24"},

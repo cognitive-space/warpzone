@@ -12,6 +12,7 @@ from fernet_fields import EncryptedTextField
 
 from kubernetes import client as kube_apis
 from kubernetes.client import ApiClient, Configuration
+from kubernetes.client.exceptions import ApiException
 from kubernetes.config.kube_config import _get_kube_config_loader
 
 
@@ -35,16 +36,30 @@ class Pipeline(models.Model):
         loader.load_and_set(client_config)
         return ApiClient(configuration=client_config)
 
-    def run_job(self, image, command, parallelism=1, wait=False):
-        job = Job(
-            command=command,
+    def run_job(self, image, job_command, wait=False):
+        qjob = Job(
+            command=self.worker_command.split(' '),
             image=image,
-            parallelism=parallelism,
+            parallelism=self.workers,
             pipeline=self,
+            job_type='queue',
+        )
+        qjob.save()
+        qjob.run()
+
+        time.sleep(0.1)
+
+        job = Job(
+            command=job_command.split(' '),
+            image=image,
+            parallelism=1,
+            pipeline=self,
+            job_type='job',
+            queue=qjob,
         )
         job.save()
-        job.run(wait=wait)
-        return job
+        job.run()
+        return qjob, job
 
     def env_list(self):
         ret = []
@@ -61,7 +76,14 @@ class Job(models.Model):
         ('created', 'Created'),
         ('submitted', 'Submitted'),
         ('active', 'Active'),
+        ('killed', 'Killed'),
+        ('failed', 'Failed'),
         ('completed', 'Completed'),
+    )
+
+    JOB_TYPES = (
+        ('queue', 'Queue'),
+        ('job', 'Job'),
     )
 
     command = ArrayField(models.CharField(max_length=255))
@@ -73,10 +95,12 @@ class Job(models.Model):
 
     job_name = models.CharField(max_length=255, blank=True, null=True)
     job_definition = models.JSONField(blank=True, null=True, encoder=DjangoJSONEncoder)
+    job_type = models.CharField(max_length=10, choices=JOB_TYPES)
+    queue = models.ForeignKey('self', on_delete=models.CASCADE, blank=True, null=True)
 
     pipeline = models.ForeignKey(Pipeline, on_delete=models.CASCADE)
 
-    status = models.CharField(max_length=255, choices=STATUS, default='created')
+    status = models.CharField(max_length=25, choices=STATUS, default='created')
 
     log_data = models.JSONField(blank=True, null=True)
 
@@ -100,7 +124,7 @@ class Job(models.Model):
         client = self.pipeline.kube_client()
         batch_v1 = kube_apis.BatchV1Api(client)
 
-        self.job_name = '{}-{}'.format(self.command[0], int(time.time()))
+        self.job_name = '{}-{}'.format(self.command[0], int(time.time() * 1000))
         job = {
             'apiVersion': 'batch/v1',
             'kind': 'Job',
@@ -130,14 +154,14 @@ class Job(models.Model):
         self.status = 'submitted'
         self.save()
 
-        if wait:
-            self.wait(client)
+        self.update_status(client, wait=wait)
 
     def job_status(self, api):
         response = api.read_namespaced_job_status(name=self.job_name, namespace="default")
         status = response.status
+        print(status)
 
-        logger.info("Job Status: Active={}, Succeeded={}, Failed={}", status.active, status.succeeded, status.failed)
+        logger.info("Job Status: {}: Active={}, Succeeded={}, Failed={}", self.id, status.active, status.succeeded, status.failed)
         if status.active:
             self.status = 'active'
 
@@ -153,23 +177,43 @@ class Job(models.Model):
         if not status.active and done == self.parallelism:
             self.status = 'completed'
 
+        elif status.active is None and status.failed is None and status.succeeded is None:
+            if status.conditions:
+                self.status = 'failed'
+
         return status
 
-    def wait(self, client=None):
+    def update_status(self, client=None, logs=False, wait=False):
         if client is None:
             client = self.pipeline.kube_client()
 
         batch_v1 = kube_apis.BatchV1Api(client)
         while 1:
-            stats = self.job_status(batch_v1)
+            try:
+                stats = self.job_status(batch_v1)
+
+            except ApiException as exc:
+                if exc.status == 404:
+                    self.status = 'killed'
+                    self.save()
+                    break
+
+                else:
+                    raise
+
             self.save()
 
             if self.status == 'completed':
+                self.save_logs(client)
+                break
+
+            if not wait:
+                if logs:
+                    self.save_logs(client)
+
                 break
 
             time.sleep(3)
-
-        self.save_logs(client)
 
     def save_logs(self, client):
         core_v1 = kube_apis.CoreV1Api(client)
@@ -186,5 +230,16 @@ class Job(models.Model):
             self.log_data.append(log_response.data.decode())
 
         self.save()
+
+    def kill(self):
+        client = self.pipeline.kube_client()
+        batch_v1 = kube_apis.BatchV1Api(client)
+
+        response = batch_v1.delete_namespaced_job(
+            name=self.job_name,
+            namespace="default",
+            body=kube_apis.V1DeleteOptions(propagation_policy='Foreground', grace_period_seconds=0)
+        )
+        return response
 
 # gitlab.cog.space:5050/cognitive-space/roci:v1.7-predasar

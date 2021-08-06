@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     'django_json_widget',
+    'huey.contrib.djhuey',
 
     'account',
     'worlds',
@@ -128,3 +129,29 @@ STATIC_URL = '/static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = 'account.User'
+
+REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379')
+HUEY = {
+    'huey_class': 'huey.PriorityRedisExpireHuey',
+    'name': 'warpzone' + DATABASES['default']['NAME'],
+    'results': True,
+    'store_none': True,
+    'immediate': False,
+    'expire_time': 600,
+    'utc': True,
+    'blocking': True,
+    'connection': {
+        'url': REDIS_URL + '/0'
+    },
+    'consumer': {
+        'workers': int(os.environ.get('WORKERS', '4')),
+        'worker_type': 'thread',
+        'initial_delay': 0.1,
+        'backoff': 1.15,
+        'max_delay': 10.0,
+        'scheduler_interval': 1,
+        'periodic': True,
+        'check_worker_health': True,
+        'health_check_interval': 1,
+    },
+}
