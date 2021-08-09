@@ -21,6 +21,7 @@ dependencies = [
     "python-dotenv~=0.19",
     "huey~=2.3",
     "redis~=3.5",
+    "uvicorn[standard]~=0.14",
 ]
 requires-python = ">=3.9"
 dynamic = ["classifiers"]

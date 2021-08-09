@@ -1,0 +1,44 @@
+{% extends 'worlds/base.html' %}{% load worlds_tags %}
+{% block title %}Job {{ job.job_name }} | {{ block.super }}{% endblock %}
+{% block content %}
+{% verbatim %}
+<v-card style="margin: 10px;">
+  <v-card-title>
+    Job: {{ job.job_name || 'Waiting to Start' }}: {{ job.pipeline.name }}
+  </v-card-title>
+  <v-card-text>
+    <v-container style="max-width: 100%;">
+      <v-select :items="logs" label="View Logs" outlined></v-select>
+      <div id="editor"></div>
+    </v-container>
+  </v-card-text>
+  <v-card-actions>
+    <v-btn color="primary" type="Submit">Start</v-btn>
+  </v-card-actions>
+</v-card>
+{% endverbatim %}
+{% endblock %}
+{% block mixin %}
+<script src="//cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.min.js" integrity="sha512-GoORoNnxst42zE3rYPj4bNBm0Q6ZRXKNH2D9nEmNvVF/z24ywVnijAWVi/09iBiVDQVf3UlZHpzhAJIdd9BXqw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+  var MIXIN = {
+    data() {
+      return {
+        job: {{ job.to_json|json_data }},
+        editor: null
+      };
+    },
+    computed: {
+      logs() {
+        var ret = [];
+        if (this.job && this.job.pods) {
+          this.job.pods.forEach((p) => {
+            ret.push({text: p.replace(`${this.job.job_name}-`, ''), value: p});
+          });
+        }
+        return ret;
+      }
+    }
+  };
+</script>
+{% endblock %}

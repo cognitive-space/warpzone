@@ -30,6 +30,13 @@ class Pipeline(models.Model):
     def __str__(self):
         return self.name
 
+    def to_json(self):
+        return {
+            'name': self.name,
+            'id': self.id,
+            'slug': self.slug,
+        }
+
     def kube_client(self):
         client_config = type.__call__(Configuration)
         loader = _get_kube_config_loader(config_dict=yaml.load(self.config, Loader=yaml.SafeLoader))
@@ -133,6 +140,23 @@ class Job(models.Model):
 
     def __str__(self):
         return self.name
+
+    def to_json(self):
+        return {
+            'job_name': self.job_name,
+            'id': self.id,
+            'status': self.status,
+            'pipeline': self.pipeline.to_json(),
+            'pods': self.pods,
+            'log_data': self.complete_logs,
+        }
+
+    @property
+    def complete_logs(self):
+        if self.status in self.STATUS_DONE:
+            return self.log_data
+
+        return {}
 
     def run(self, wait=False):
         client = self.pipeline.kube_client()
@@ -246,11 +270,11 @@ class Job(models.Model):
 
     def save_logs(self, client):
         core_v1 = kube_apis.CoreV1Api(client)
-        self.log_data = []
+        self.log_data = {}
         for pod_name in self.get_pods(client):
             log_response = core_v1.read_namespaced_pod_log(
                 name=pod_name, namespace="default", _return_http_data_only=True, _preload_content=False)
-            self.log_data.append(log_response.data.decode())
+            self.log_data[pod_name] = log_response.data.decode()
 
         self.save()
 

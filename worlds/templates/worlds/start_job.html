@@ -1,0 +1,37 @@
+{% extends 'worlds/base.html' %}{% load worlds_tags %}
+{% block title %}Start A Job | {{ block.super }}{% endblock %}
+{% block content %}
+<form action="/" method="POST">
+  {% csrf_token %}
+  <v-card class="mx-auto my-12" max-width="800">
+    <v-card-title>Start A Job</v-card-title>
+    <v-card-text>
+      <v-container>
+        <v-row>
+          <v-text-field label="Image" name="image" outlined required></v-text-field>
+        </v-row>
+        <v-row>
+          <v-text-field label="Command" name="command" outlined required></v-text-field>
+        </v-row>
+        <v-row>
+          <v-select :items="pipelines" label="Pipeline" outlined name="pipeline"></v-select>
+        </v-row>
+      </v-container>
+    </v-card-text>
+    <v-card-actions>
+      <v-btn color="primary" type="Submit">Start</v-btn>
+    </v-card-actions>
+  </v-card>
+</form>
+{% endblock %}
+{% block mixin %}
+<script>
+  var MIXIN = {
+    data() {
+      return {
+        pipelines: {{ pipelines|json_data }}
+      };
+    }
+  };
+</script>
+{% endblock %}
