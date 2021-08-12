@@ -162,3 +162,5 @@ CONTAINER_REPO = os.environ.get('CONTAINER_REPO', None)
 
 SESSION_COOKIE_SAMESITE = 'Strict'
 CSRF_COOKIE_SAMESITE = 'Strict'
+
+LOGIN_URL = '/admin/login/'

@@ -1,4 +1,4 @@
-{% extends 'worlds/base.html' %}{% load worlds_tags %}
+{% extends 'worlds/base.html' %}{% load worlds_tags static %}
 {% block title %}Job {{ job.job_name }} | {{ block.super }}{% endblock %}
 {% block content %}
 {% verbatim %}
@@ -8,24 +8,37 @@
   </v-card-title>
   <v-card-text>
     <v-container style="max-width: 100%;">
-      <v-select :items="logs" label="View Logs" outlined></v-select>
-      <div id="editor"></div>
+      <div style="display: flex; align-items: flex-start;">
+        <div style="flex: 1;">
+          <v-select :items="logs" label="View Logs" outlined v-model="pod" dense></v-select>
+        </div>
+        <div style="padding-left: 20px;">
+          <v-btn color="error" href="./kill/" small>Kill</v-btn>
+        </div>
+      </div>
+      <div v-if="editor">
+        <v-btn-toggle dense v-model="toggle">
+          <v-btn @click="scroll_top" title="jump to top"><v-icon class="mdi mdi-arrow-collapse-up"></v-icon></v-btn>
+          <v-btn @click="scroll_bottom" title="jump to bottom"><v-icon class="mdi mdi-arrow-collapse-down"></v-icon></v-btn>
+        </v-btn-toggle>
+        <br><br>
+      </div>
+      <div id="editor" style="width: 100%; height: 450px;"></div>
     </v-container>
   </v-card-text>
-  <v-card-actions>
-    <v-btn color="primary" type="Submit">Start</v-btn>
-  </v-card-actions>
 </v-card>
 {% endverbatim %}
 {% endblock %}
 {% block mixin %}
-<script src="//cdnjs.cloudflare.com/ajax/libs/ace/1.4.12/ace.min.js" integrity="sha512-GoORoNnxst42zE3rYPj4bNBm0Q6ZRXKNH2D9nEmNvVF/z24ywVnijAWVi/09iBiVDQVf3UlZHpzhAJIdd9BXqw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="{% static 'ace/ace.js' %}"></script>
 <script>
   var MIXIN = {
     data() {
       return {
         job: {{ job.to_json|json_data }},
-        editor: null
+        editor: null,
+        pod: null,
+        toggle: null
       };
     },
     computed: {
@@ -37,6 +50,69 @@
           });
         }
         return ret;
+      },
+      completed() {
+        var completed = ['completed', 'killed', 'failed'];
+        return completed.indexOf(this.job.status) > -1;
+      }
+    },
+    mounted() {
+      if (!this.completed) {
+        this.connect();
+      }
+    },
+    watch: {
+      toggle() {
+        setTimeout(() => {
+          this.toggle = null;
+        }, 500);
+      },
+      pod(to, from) {
+        if (to && to != from) {
+          if (!this.editor) {
+            this.editor = ace.edit("editor");
+            this.editor.setTheme("ace/theme/gob");
+            this.editor.session.setMode("ace/mode/text");
+            this.editor.setReadOnly(true);
+          }
+
+          if (this.completed) {
+            var session = this.editor.getSession();
+            session.setValue(this.job.log_data[to]);
+          } else {
+            this.connect(to);
+          }
+        }
+      }
+    },
+    methods: {
+      scroll_top() {
+        this.editor.renderer.scrollToLine(0);
+      },
+      scroll_bottom() {
+        var lines = this.editor.session.doc.getAllLines();
+        this.editor.renderer.scrollToLine(lines.length - 1);
+      },
+      connect(pod) {
+        if (this.ws) {
+          this.ws.close();
+        }
+
+        var url = `${location.protocol}//${location.host}?job=${this.job.id}`;
+        url = url.replace('http', 'ws');
+        if (pod) {
+          url += `&pod=${pod}`;
+        }
+
+        this.ws = new WebSocket(url);
+        this.ws.addEventListener('message', (event) => {
+          var msg = JSON.parse(event.data);
+          if (msg.type == 'job') {
+            this.job = msg.data;
+          } else {
+            console.log(msg);
+          }
+        });
       }
     }
   };

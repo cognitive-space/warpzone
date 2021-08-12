@@ -149,6 +149,8 @@ class Job(models.Model):
             'pipeline': self.pipeline.to_json(),
             'pods': self.pods,
             'log_data': self.complete_logs,
+            'modified': self.modified.isoformat(),
+            'created': self.created.isoformat()
         }
 
     @property
@@ -290,6 +292,7 @@ class Job(models.Model):
         return response
 
     def watch_pod(self, pod_name, client=None, log=False):
+        print(pod_name, log)
         if client is None:
             client = self.pipeline.kube_client()
 
@@ -297,6 +300,7 @@ class Job(models.Model):
         w = kube_watch.Watch()
         for e in w.stream(v1.read_namespaced_pod_log, name=pod_name, namespace='default'):
             if log:
+                print('narf')
                 print(e)
 
             else:

@@ -23,7 +23,7 @@ class JobAdmin(admin.ModelAdmin):
         JSONField: {'widget': JSONEditorWidget(options={'mode': 'view'})},
     }
 
-    readonly_fields = ('job_name', 'succeeded', 'failed', 'status')
+    readonly_fields = ('succeeded', 'failed', 'status')
     raw_id_fields = ('queue',)
 
     def _image(self, obj):

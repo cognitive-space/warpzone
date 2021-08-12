@@ -32,3 +32,10 @@ def job_details(request, jid):
         'job': job
     }
     return TemplateResponse(request, 'worlds/job_details.html', context)
+
+
+@login_required
+def job_kill(request, jid):
+    job = get_object_or_404(Job, id=jid)
+    job.kill()
+    return http.HttpResponseRedirect("/")
