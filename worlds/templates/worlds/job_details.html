@@ -119,10 +119,11 @@
           this.editor.setReadOnly(true);
         }
 
+        var session = this.editor.getSession();
         if (this.completed) {
-          var session = this.editor.getSession();
           session.setValue(this.job.log_data[to]);
         } else {
+          session.setValue('');
           this.connect(to);
         }
       },

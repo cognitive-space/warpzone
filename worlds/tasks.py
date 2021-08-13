@@ -6,6 +6,7 @@ from django.core.cache import caches
 from huey.contrib.djhuey import db_periodic_task, db_task
 from huey import crontab
 
+from loguru import logger
 from kubernetes.client.exceptions import ApiException
 
 from worlds.models import Job
@@ -34,3 +35,11 @@ def watch_log(jid, pod):
         for event in job.watch_pod(pod):
             msg = json.dumps({'type': 'log', 'data': event + '\n'})
             client.rpush(pod, msg)
+
+            # todo: kill faster
+            shutdown = caches['default'].get(f'shutdown-{pod}')
+            if shutdown:
+                caches['default'].delete(f'shutdown-{pod}')
+                caches['default'].delete(pod)
+                logger.info('Shutting Down Log Stream: {}', pod)
+                return

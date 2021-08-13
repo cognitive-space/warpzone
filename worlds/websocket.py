@@ -73,6 +73,7 @@ async def watch_log_data(job, pod, send, log_queue):
         try:
             if log_queue.get_nowait():
                 log_queue.task_done()
+                caches['default'].set(f'shutdown-{pod}', 'shutdown', 60)
                 return
 
         except asyncio.QueueEmpty:
@@ -117,7 +118,6 @@ async def logging_socket(scope, receive, send):
         event = await receive()
         job = request.WS.get('job')
         pod = request.WS.get('pod')
-        print('Web Socket', request.user, job, pod)
 
         if event['type'] == 'websocket.connect':
             logger.info('Websocket Connected')
