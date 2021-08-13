@@ -4,6 +4,7 @@ import time
 from django.db import models
 from django.core.serializers.json import DjangoJSONEncoder
 from django.contrib.postgres.fields import ArrayField
+from django.utils import timezone
 
 import yaml
 from dotenv import dotenv_values
@@ -82,12 +83,16 @@ class Pipeline(models.Model):
         job.run()
         return qjob, job
 
-    def env_list(self):
+    def env_list(self, envs=None):
         ret = []
         if self.envs:
             stream = io.StringIO(self.envs)
             for name, value in dotenv_values(stream=stream).items():
                 ret.append({'name': name, 'value': value})
+
+        if envs:
+            for key, value in envs.items():
+                ret.append({'name': key, 'value': value})
 
         return ret
 
@@ -176,6 +181,7 @@ class Job(models.Model):
         batch_v1 = kube_apis.BatchV1Api(client)
 
         self.job_name = '{}-{}'.format(self.command[0], int(time.time() * 1000))
+        job_path = '{}/{}'.format(self.job_name, timezone.now().strftime('%Y/%m'))
         job = {
             'apiVersion': 'batch/v1',
             'kind': 'Job',
@@ -190,7 +196,10 @@ class Job(models.Model):
                             'name': self.job_name,
                             'image': self.image,
                             'command': self.command,
-                            'env': self.pipeline.env_list(),
+                            'env': self.pipeline.env_list({
+                                'JOB_NAME': self.job_name,
+                                'JOB_PATH': job_path
+                            }),
                         }],
                 'restartPolicy': 'OnFailure'}
             },
