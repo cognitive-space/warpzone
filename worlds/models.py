@@ -52,6 +52,11 @@ class Pipeline(models.Model):
             job_type='queue'
         ).first()
 
+        if qjob:
+            qjob.update_status()
+            if qjob.status in qjob.STATUS_DONE:
+                qjob = None
+
         if qjob is None:
             qjob = Job(
                 command=self.worker_command.split(' '),
@@ -142,6 +147,10 @@ class Job(models.Model):
         return self.name
 
     def to_json(self):
+        q = None
+        if self.queue:
+            q = self.queue.id
+
         return {
             'job_name': self.job_name,
             'id': self.id,
@@ -150,7 +159,9 @@ class Job(models.Model):
             'pods': self.pods,
             'log_data': self.complete_logs,
             'modified': self.modified.isoformat(),
-            'created': self.created.isoformat()
+            'created': self.created.isoformat(),
+            'job_type': self.job_type,
+            'queue': q
         }
 
     @property
@@ -245,8 +256,13 @@ class Job(models.Model):
 
             self.save()
 
-            if self.status == 'completed':
-                self.save_logs(client)
+            if self.status in self.STATUS_DONE:
+                try:
+                    self.save_logs(client)
+
+                except:
+                    pass
+
                 break
 
             if not wait:
@@ -291,17 +307,11 @@ class Job(models.Model):
         )
         return response
 
-    def watch_pod(self, pod_name, client=None, log=False):
-        print(pod_name, log)
+    def watch_pod(self, pod_name, client=None):
         if client is None:
             client = self.pipeline.kube_client()
 
         v1 = kube_apis.CoreV1Api(client)
         w = kube_watch.Watch()
         for e in w.stream(v1.read_namespaced_pod_log, name=pod_name, namespace='default'):
-            if log:
-                print('narf')
-                print(e)
-
-            else:
-                yield e
+            yield e

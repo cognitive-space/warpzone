@@ -4,7 +4,8 @@
 {% verbatim %}
 <v-card style="margin: 10px;">
   <v-card-title>
-    Job: {{ job.job_name || 'Waiting to Start' }}: {{ job.pipeline.name }}
+    Job: {{ job.job_name || 'Waiting to Start' }}: {{ job.pipeline.name }}<br>
+    Job Type: {{ job_type }} - Status: {{ job.status }}
   </v-card-title>
   <v-card-text>
     <v-container style="max-width: 100%;">
@@ -12,16 +13,25 @@
         <div style="flex: 1;">
           <v-select :items="logs" label="View Logs" outlined v-model="pod" dense></v-select>
         </div>
-        <div style="padding-left: 20px;">
+        <div style="padding-left: 20px;" v-if="!completed">
           <v-btn color="error" href="./kill/" small>Kill</v-btn>
         </div>
       </div>
       <div v-if="editor">
-        <v-btn-toggle dense v-model="toggle">
-          <v-btn @click="scroll_top" title="jump to top"><v-icon class="mdi mdi-arrow-collapse-up"></v-icon></v-btn>
-          <v-btn @click="scroll_bottom" title="jump to bottom"><v-icon class="mdi mdi-arrow-collapse-down"></v-icon></v-btn>
-        </v-btn-toggle>
-        <br><br>
+        <v-row class="align-center">
+          <v-col class="flex-shrink-1 flex-grow-0">
+            <v-btn-toggle dense v-model="toggle">
+              <v-btn @click="scroll_top" title="jump to top"><v-icon class="mdi mdi-arrow-collapse-up"></v-icon></v-btn>
+              <v-btn @click="scroll_bottom" title="jump to bottom"><v-icon class="mdi mdi-arrow-collapse-down"></v-icon></v-btn>
+              <v-btn v-if="job.queue" :href="`../${job.queue}/`" target="_blank">
+                <v-icon class="mdi mdi-database-cog"></v-icon>
+              </v-btn>
+            </v-btn-toggle>
+          </v-col>
+          <v-col class="flex-grow-1">
+            <v-checkbox v-model="autoscroll" label="Auto Scroll"></v-checkbox>
+          </v-col>
+        </v-row>
       </div>
       <div id="editor" style="width: 100%; height: 450px;"></div>
     </v-container>
@@ -38,7 +48,8 @@
         job: {{ job.to_json|json_data }},
         editor: null,
         pod: null,
-        toggle: null
+        toggle: null,
+        autoscroll: true
       };
     },
     computed: {
@@ -54,11 +65,28 @@
       completed() {
         var completed = ['completed', 'killed', 'failed'];
         return completed.indexOf(this.job.status) > -1;
+      },
+      job_type() {
+        if (this.job && this.job.job_type) {
+          if (this.job.job_type == 'queue') {
+            return 'Queue Workers';
+          } else {
+            return 'Master Job';
+          }
+        }
+
+        return '---';
       }
     },
     mounted() {
+      if (this.logs.length >= 1) {
+        this.pod = this.logs[0].value;
+      }
+
       if (!this.completed) {
-        this.connect();
+        if (!this.pod) {
+          this.connect();
+        }
       }
     },
     watch: {
@@ -69,19 +97,9 @@
       },
       pod(to, from) {
         if (to && to != from) {
-          if (!this.editor) {
-            this.editor = ace.edit("editor");
-            this.editor.setTheme("ace/theme/gob");
-            this.editor.session.setMode("ace/mode/text");
-            this.editor.setReadOnly(true);
-          }
-
-          if (this.completed) {
-            var session = this.editor.getSession();
-            session.setValue(this.job.log_data[to]);
-          } else {
-            this.connect(to);
-          }
+          this.$nextTick(() => {
+            this.switch_pod(to);
+          });
         }
       }
     },
@@ -92,6 +110,21 @@
       scroll_bottom() {
         var lines = this.editor.session.doc.getAllLines();
         this.editor.renderer.scrollToLine(lines.length - 1);
+      },
+      switch_pod(to) {
+        if (!this.editor) {
+          this.editor = ace.edit("editor");
+          this.editor.setTheme("ace/theme/gob");
+          this.editor.session.setMode("ace/mode/text");
+          this.editor.setReadOnly(true);
+        }
+
+        if (this.completed) {
+          var session = this.editor.getSession();
+          session.setValue(this.job.log_data[to]);
+        } else {
+          this.connect(to);
+        }
       },
       connect(pod) {
         if (this.ws) {
@@ -109,6 +142,19 @@
           var msg = JSON.parse(event.data);
           if (msg.type == 'job') {
             this.job = msg.data;
+            this.$nextTick(() => {
+              if (this.completed && this.pod) {
+                this.switch_pod(this.pod);
+              }
+            });
+          } else if (msg.type == 'log') {
+            var session = this.editor.getSession();
+            var value = session.getValue();
+            session.setValue(value + msg.data);
+
+            if (this.autoscroll) {
+              this.scroll_bottom();
+            }
           } else {
             console.log(msg);
           }

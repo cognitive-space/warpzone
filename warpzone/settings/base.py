@@ -164,3 +164,10 @@ SESSION_COOKIE_SAMESITE = 'Strict'
 CSRF_COOKIE_SAMESITE = 'Strict'
 
 LOGIN_URL = '/admin/login/'
+
+CACHES = {
+    'default': {
+        'BACKEND': 'redis_cache.RedisCache',
+        'LOCATION': REDIS_URL + '/1',
+    }
+}

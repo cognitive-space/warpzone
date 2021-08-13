@@ -1,9 +1,11 @@
 import asyncio
 import json
+import multiprocessing as mp
 from importlib import import_module
 
 from django import http
 from django.conf import settings
+from django.core.cache import caches
 from django.core.handlers.asgi import ASGIRequest
 from django.contrib import auth
 from django.utils import timezone
@@ -13,6 +15,7 @@ from asgiref.sync import sync_to_async
 from loguru import logger
 
 from worlds.models import Job
+from worlds.tasks import watch_log
 
 
 def add_websocket(app):
@@ -51,20 +54,29 @@ def get_job(jid, obj=False):
     return {}
 
 
-async def watch_log(jid, pod, send, queue):
-    job = await sync_to_async(get_job, thread_sensitive=True)(jid)
-    if job:
-        for event in job.watch_pod(pod):
-            msg = {'type': 'loj', 'data': event}
-            await send({'type': 'websocket.send', 'text': json.dumps(msg)})
+async def watch_log_data(job, pod, send, log_queue):
+    watch_log(job, pod)
+    client = caches['default'].get_client('default')
 
-            try:
-                if queue.get_nowait():
-                    queue.task_done()
-                    return
+    while 1:
+        await asyncio.sleep(0.1)
 
-            except asyncio.QueueEmpty:
-                pass
+        while 1:
+            msg = client.lpop(pod)
+
+            if msg:
+                await send({'type': 'websocket.send', 'text': msg.decode()})
+
+            else:
+                break
+
+        try:
+            if log_queue.get_nowait():
+                log_queue.task_done()
+                return
+
+        except asyncio.QueueEmpty:
+            pass
 
 
 async def watch_job_data(job, send, queue):
@@ -81,6 +93,7 @@ async def watch_job_data(job, send, queue):
             if new_data['modified'] != jdata['modified']:
                 jdata = new_data
                 msg = {'type': 'job', 'data': jdata}
+                logger.info('Sending job update: {} {}', jdata['id'], jdata['status'])
                 await send({'type': 'websocket.send', 'text': json.dumps(msg)})
 
         try:
@@ -114,20 +127,20 @@ async def logging_socket(scope, receive, send):
                 await send({'type': 'websocket.close'})
                 return
 
-            queue = asyncio.Queue()
-            task = asyncio.create_task(watch_job_data(job, send, queue))
+            job_queue = asyncio.Queue()
+            task = asyncio.create_task(watch_job_data(job, send, job_queue))
 
             if pod:
                 log_queue = asyncio.Queue()
-                log_task = asyncio.create_task(watch_log(job, pod, send, log_queue))
+                log_task = asyncio.create_task(watch_log_data(job, pod, send, log_queue))
 
             await send({'type': 'websocket.accept'})
             connected = True
 
         if connected and event['type'] == 'websocket.disconnect':
             logger.info('Websocket Disconnected')
-            await queue.put(True)
-            await queue.join()
+            await job_queue.put(True)
+            await job_queue.join()
             task.cancel()
             await asyncio.gather(task, return_exceptions=True)
 

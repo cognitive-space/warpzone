@@ -14,7 +14,7 @@
           <v-text-field label="Command" name="command" outlined required></v-text-field>
         </v-row>
         <v-row>
-          <v-select :items="pipelines" label="Pipeline" outlined name="pipeline"></v-select>
+          <v-select :items="pipelines" label="Pipeline" outlined name="pipeline" v-model="pipeline"></v-select>
         </v-row>
       </v-container>
     </v-card-text>
@@ -29,8 +29,14 @@
   var MIXIN = {
     data() {
       return {
-        pipelines: {{ pipelines|json_data }}
+        pipelines: {{ pipelines|json_data }},
+        pipeline: null
       };
+    },
+    mounted() {
+      if (this.pipelines.length) {
+        this.pipeline = this.pipelines[0].value;
+      }
     }
   };
 </script>
