@@ -21,5 +21,6 @@ import worlds.views as worlds_views
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('worlds/', include('worlds.urls')),
-    path('', worlds_views.start_job)
+    path('favicon.ico', worlds_views.favicon),
+    path('', worlds_views.start_job),
 ]

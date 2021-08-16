@@ -39,3 +39,7 @@ def job_kill(request, jid):
     job = get_object_or_404(Job, id=jid)
     job.kill()
     return http.HttpResponseRedirect("/")
+
+
+def favicon(request):
+    return http.HttpResponseRedirect("/static/favicon.ico")
