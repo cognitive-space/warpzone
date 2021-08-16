@@ -182,6 +182,13 @@ class Job(models.Model):
 
         self.job_name = '{}-{}'.format(self.command[0], int(time.time() * 1000))
         job_path = '{}/{}'.format(self.job_name, timezone.now().strftime('%Y/%m'))
+        local_envs = {}
+        if self.job_type == 'queue':
+            local_envs = {
+                'JOB_NAME': self.job_name,
+                'JOB_PATH': job_path
+            }
+
         job = {
             'apiVersion': 'batch/v1',
             'kind': 'Job',
@@ -196,10 +203,7 @@ class Job(models.Model):
                             'name': self.job_name,
                             'image': self.image,
                             'command': self.command,
-                            'env': self.pipeline.env_list({
-                                'JOB_NAME': self.job_name,
-                                'JOB_PATH': job_path
-                            }),
+                            'env': self.pipeline.env_list(local_envs),
                         }],
                 'restartPolicy': 'OnFailure'}
             },
