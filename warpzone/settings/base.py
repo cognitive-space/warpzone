@@ -135,8 +135,10 @@ AUTH_USER_MODEL = 'account.User'
 
 REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379')
 HUEY_URL = REDIS_URL + '/0'
+CACHE_URL = REDIS_URL + '/1'
 if HUEY_URL.startswith('rediss://'):
     HUEY_URL += '?ssl_cert_reqs=none'
+    CACHE_URL += '?ssl_cert_reqs=none'
 
 HUEY = {
     'huey_class': 'huey.PriorityRedisExpireHuey',
@@ -171,6 +173,8 @@ LOGIN_URL = '/admin/login/'
 CACHES = {
     'default': {
         'BACKEND': 'redis_cache.RedisCache',
-        'LOCATION': REDIS_URL + '/1',
+        'LOCATION': CACHE_URL,
     }
 }
+
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
