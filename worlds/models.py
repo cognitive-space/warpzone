@@ -45,6 +45,14 @@ class Pipeline(models.Model):
         loader.load_and_set(client_config)
         return ApiClient(configuration=client_config)
 
+    def list_pods(self, client=None):
+        if client is None:
+            client = self.kube_client()
+
+        core_v1 = kube_apis.CoreV1Api(client)
+        ret = core_v1.list_pod_for_all_namespaces(watch=False)
+        return ret.items
+
     def run_job(self, image, job_command, wait=False):
         qjob = Job.objects.filter(
             image=image,
