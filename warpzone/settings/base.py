@@ -133,12 +133,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = 'account.User'
 
-REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379')
+REDIS_URL = os.environ.get('STACKHERO_REDIS_URL_TLS', 'redis://localhost:6379')
 HUEY_URL = REDIS_URL + '/0'
 CACHE_URL = REDIS_URL + '/1'
-if HUEY_URL.startswith('rediss://'):
-    HUEY_URL += '?ssl_cert_reqs=none'
-    CACHE_URL += '?ssl_cert_reqs=none'
 
 HUEY = {
     'huey_class': 'huey.PriorityRedisExpireHuey',

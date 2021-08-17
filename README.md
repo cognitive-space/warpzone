@@ -1,4 +1,4 @@
-# Warp Zone
+# WarpZone
 
 A magically easy way to run job pipelines on Kubernetes
 
@@ -13,4 +13,10 @@ curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key add
 echo "deb https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee -a /etc/apt/sources.list.d/kubernetes.list
 sudo apt-get update
 sudo apt-get install -y kubectl
+```
+
+## Configure kubectl for Private Repo:
+
+```
+ kubectl create secret docker-registry regcred --docker-server=https://gitlab.cog.space:5050 --docker-username=gitlab-ci-token --docker-password=<token> --docker-email=<email>
 ```
