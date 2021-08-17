@@ -1,3 +1,2 @@
 python manage.py collectstatic --noinput
-
-bin/build-aws.bsh
+python manage.py migrate
