@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/3.2/ref/settings/
 
 import os
 from pathlib import Path
+from urllib.parse import urlparse
 
 import dj_database_url
 
@@ -143,8 +144,13 @@ HUEY = {
     'utc': True,
     'blocking': True,
     'connection': {
-        'url': REDIS_URL + '/0',
+        'host': url.hostname,
+        'port': url.port,
+        'username': url.username,
+        'password': url.password,
+        'ssl': True,
         'ssl_cert_reqs': None,
+        'db': 0,
     },
     'consumer': {
         'workers': int(os.environ.get('WORKERS', '4')),
