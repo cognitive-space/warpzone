@@ -147,6 +147,7 @@ else:
         'ssl': True,
         'ssl_cert_reqs': None,
         'db': 0,
+        'connection_pool': None,
     }
 
 
