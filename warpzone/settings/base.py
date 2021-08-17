@@ -134,6 +134,22 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'account.User'
 
 REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379')
+if REDIS_URL.startswith('redis://'):
+    redis_connection = {'url': REDIS_URL '/0'}
+
+else:
+    redis_url = urlparse(os.environ.get("REDIS_URL"))
+    redis_connection = {
+        'host': redis_url.hostname,
+        'port': redis_url.port,
+        'username': redis_url.username,
+        'password': redis_url.password,
+        'ssl': True,
+        'ssl_cert_reqs': None,
+        'db': 0,
+    }
+
+
 HUEY = {
     'huey_class': 'huey.PriorityRedisExpireHuey',
     'name': 'warpzone' + DATABASES['default']['NAME'],
@@ -143,15 +159,7 @@ HUEY = {
     'expire_time': 600,
     'utc': True,
     'blocking': True,
-    'connection': {
-        'host': url.hostname,
-        'port': url.port,
-        'username': url.username,
-        'password': url.password,
-        'ssl': True,
-        'ssl_cert_reqs': None,
-        'db': 0,
-    },
+    'connection': redis_connection,
     'consumer': {
         'workers': int(os.environ.get('WORKERS', '4')),
         'worker_type': 'thread',
