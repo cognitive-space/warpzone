@@ -136,7 +136,7 @@ AUTH_USER_MODEL = 'account.User'
 REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379')
 HUEY_URL = REDIS_URL + '/0'
 if HUEY_URL.startswith('rediss://'):
-    HUEY_URL += '?ssl_cert_reqs=None'
+    HUEY_URL += '?ssl_cert_reqs=none'
 
 HUEY = {
     'huey_class': 'huey.PriorityRedisExpireHuey',
