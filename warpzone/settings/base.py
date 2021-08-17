@@ -143,7 +143,8 @@ HUEY = {
     'utc': True,
     'blocking': True,
     'connection': {
-        'url': REDIS_URL + '/0'
+        'url': REDIS_URL + '/0',
+        'ssl_cert_reqs': None,
     },
     'consumer': {
         'workers': int(os.environ.get('WORKERS', '4')),
