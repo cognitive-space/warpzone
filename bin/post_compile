@@ -1,2 +1,1 @@
 python manage.py collectstatic --noinput
-apt install groff less libc-bin
