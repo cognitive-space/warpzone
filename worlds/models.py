@@ -188,7 +188,7 @@ class Job(models.Model):
         client = self.pipeline.kube_client()
         batch_v1 = kube_apis.BatchV1Api(client)
 
-        self.job_name = '{}-{}'.format(self.command[0], int(time.time() * 1000))
+        self.job_name = '{}-{}-{}'.format(self.job_type, self.command[0], int(time.time() * 1000))
         job_path = '{}/{}'.format(self.job_name, timezone.now().strftime('%Y/%m'))
         local_envs = {}
         if self.job_type == 'queue':
@@ -203,6 +203,7 @@ class Job(models.Model):
             'metadata': {'name': self.job_name},
             'spec': {
                 'parallelism': self.parallelism,
+                'completions': self.parallelism,
                 'ttlSecondsAfterFinished': 60 * 60, # cleanup pod after 1 hour
                 'template': {
                     'spec': {
@@ -212,10 +213,13 @@ class Job(models.Model):
                             'image': self.image,
                             'command': self.command,
                             'env': self.pipeline.env_list(local_envs),
+                            'ports': [{'hostPort': 17777, 'containerPort': 17777}] # this is hack to get one pod per node
                         }],
-                'restartPolicy': 'OnFailure'}
-            },
-            'backoffLimit': 4}
+                        'restartPolicy': 'OnFailure'
+                    }
+                },
+                'backoffLimit': 4
+            }
         }
 
         response = batch_v1.create_namespaced_job(body=job, namespace="default")
