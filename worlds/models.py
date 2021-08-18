@@ -28,6 +28,8 @@ class Pipeline(models.Model):
     config = EncryptedTextField(help_text='kube config file', blank=True, null=True)
     envs = EncryptedTextField(help_text='use .env format', blank=True, null=True)
 
+    force_scaling = models.JSONField(blank=True, null=True)
+
     def __str__(self):
         return self.name
 
