@@ -1,3 +1,7 @@
 import boto3
 
-client = boto3.client('eks')
+def scale_up(params):
+    client = boto3.client('eks')
+
+def scale_down(params):
+    pass

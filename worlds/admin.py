@@ -14,6 +14,10 @@ class PipelineAdmin(admin.ModelAdmin):
     list_display = ('name', 'slug', 'workers')
     search_fields = ('name', 'slug', 'worker_command')
 
+    formfield_overrides = {
+        JSONField: {'widget': JSONEditorWidget()},
+    }
+
 
 @admin.register(Job)
 class JobAdmin(admin.ModelAdmin):

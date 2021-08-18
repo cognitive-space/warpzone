@@ -20,3 +20,22 @@ sudo apt-get install -y kubectl
 ```
  kubectl create secret docker-registry regcred --docker-server=https://gitlab.cog.space:5050 --docker-username=gitlab-ci-token --docker-password=<token> --docker-email=<email>
 ```
+
+```json
+{
+  "eks": {
+    "scaleUp": {
+      "maxSize": 10,
+      "minSize": 2,
+      "desiredSize": 5
+    },
+    "scaleDown": {
+      "maxSize": 10,
+      "minSize": 2,
+      "desiredSize": 2
+    },
+    "clusterName": "",
+    "nodegroupName": ""
+  }
+}
+```

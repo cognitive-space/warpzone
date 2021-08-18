@@ -77,6 +77,7 @@ class Pipeline(models.Model):
                 job_type='queue',
             )
             qjob.save()
+            self.scale_up()
             qjob.run()
 
         time.sleep(0.1)
@@ -289,6 +290,9 @@ class Job(models.Model):
 
                 except:
                     pass
+
+                if self.job_type == 'queue':
+                    self.pipeline.scale_down()
 
                 break
 
