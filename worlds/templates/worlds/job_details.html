@@ -23,6 +23,9 @@
             <v-btn-toggle dense v-model="toggle">
               <v-btn @click="scroll_top" title="jump to top"><v-icon class="mdi mdi-arrow-collapse-up"></v-icon></v-btn>
               <v-btn @click="scroll_bottom" title="jump to bottom"><v-icon class="mdi mdi-arrow-collapse-down"></v-icon></v-btn>
+              <v-btn v-if="completed && pod" :href="`./${pod}.log`" download>
+                <v-icon class="mdi mdi-cloud-download"></v-icon>
+              </v-btn>
               <v-btn v-if="job.queue" :href="`../${job.queue}/`" target="_blank">
                 <v-icon class="mdi mdi-database-cog"></v-icon>
               </v-btn>

@@ -46,6 +46,13 @@ def job_details(request, jid):
     }
     return TemplateResponse(request, 'worlds/job_details.html', context)
 
+@login_required
+def job_log(request, jid, pod):
+    job = get_object_or_404(Job, id=jid)
+    if job.log_data and pod in job.log_data:
+        return http.HttpResponse(job.log_data[pod], content_type="text/plain")
+
+    raise http.Http404
 
 @login_required
 def job_kill(request, jid):
