@@ -2,6 +2,7 @@ from django import http
 from django.contrib.auth.decorators import login_required
 from django.template.response import TemplateResponse
 from django.shortcuts import get_object_or_404
+from django.core.paginator import Paginator
 
 from worlds.models import Pipeline, Job
 
@@ -24,6 +25,18 @@ def start_job(request):
     }
     return TemplateResponse(request, 'worlds/start_job.html', context)
 
+
+@login_required
+def job_list(request):
+    jobs = Job.objects.all()
+    paginator = Paginator(jobs, 50)
+
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    context = {
+        'page_obj': page_obj
+    }
+    return TemplateResponse(request, 'worlds/job_list.html', context)
 
 @login_required
 def job_details(request, jid):

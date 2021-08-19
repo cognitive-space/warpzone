@@ -13,19 +13,33 @@
   <link rel="mask-icon" href="{% static 'safari-pinned-tab.svg' %}" color="#5bbad5">
   <meta name="msapplication-TileColor" content="#00aba9">
   <meta name="theme-color" content="#ffffff">
+  <style>
+    .v-navigation-drawer__content .v-btn {
+      display: flex !important;
+      align-items: center;
+    }
+
+    table td {
+      font-size:  90% !important;
+    }
+  </style>
 </head>
 <body>
   <div id="app">
     <v-app id="inspire">
       <v-navigation-drawer
         v-model="drawer"
+        mobile-breakpoint="0"
         app
         class="pt-4"
         color="primary"
         mini-variant
       >
-        <v-btn class="d-block text-center mx-auto mb-9" fab small color="accent" href="/" style="display: flex !important; align-items: center;">
+        <v-btn class="d-block text-center mx-auto mb-9" fab small color="accent" href="/">
           <img src="{% static 'worlds/pipe.png' %}" style="width: 32px;"/>
+        </v-btn>
+        <v-btn class="d-block text-center mx-auto mb-9" fab small color="primary" href="/worlds/jobs/">
+          <v-icon class="mdi mdi-format-list-bulleted"></v-icon>
         </v-btn>
       </v-navigation-drawer>
       <v-main>

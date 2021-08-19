@@ -206,6 +206,13 @@ class Job(models.Model):
         }
 
     @property
+    def cmd(self):
+        if self.command:
+            return ' '.join(self.command)
+
+        return ''
+
+    @property
     def complete_logs(self):
         if self.status in self.STATUS_DONE:
             return self.log_data

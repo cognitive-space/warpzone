@@ -1,0 +1,73 @@
+{% extends 'worlds/base.html' %}{% load worlds_tags static humanize %}
+{% block title %}Job List | {{ block.super }}{% endblock %}
+{% block content %}
+<v-card style="margin: 10px;">
+  <v-card-title>
+    Job List
+  </v-card-title>
+  <v-card-text>
+    <v-container style="max-width: 100%;">
+      <v-pagination v-model="page" :length="{{ page_obj.paginator.num_pages }}"></v-pagination>
+      <v-simple-table>
+        <template v-slot:default>
+          <thead>
+            <tr>
+              <th class="text-left">
+                Job
+              </th>
+              <th class="text-left">
+                Details
+              </th>
+              <th class="text-left">
+                Type
+              </th>
+              <th>
+                Success/Failed
+              </th>
+              <th class="text-left">
+                Status
+              </th>
+              <th class="text-left">
+                Created
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for j in page_obj %}
+            <tr>
+              <td>
+                <a href="/worlds/job/{{ j.id }}/">{{ j.name }}</a>
+              </td>
+              <td>
+                <strong>Image:</strong> {{ j.image }}
+                <br>
+                <strong>Command:</strong> {{ j.cmd }}
+              </td>
+              <td>{{ j.get_job_type_display }}</td>
+              <td class="text-center">{{ j.succeeded }}/{{ j.failed }}</td>
+              <td>{{ j.get_status_display }}</td>
+              <td>{{ j.created|naturaltime }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </template>
+      </v-simple-table>
+      <v-pagination v-model="page" :length="{{ page_obj.paginator.num_pages }}"></v-pagination>
+    </v-container>
+  </v-card-text>
+</v-card>
+{% endblock %}
+{% block mixin %}
+<script>
+  var MIXIN = {
+    data() {
+      return {page : {{ page_obj.number }}}
+    },
+    watch: {
+      page(to, from) {
+        location.href = `./?page=${to}`
+      }
+    }
+  };
+</script>
+{% endblock %}
