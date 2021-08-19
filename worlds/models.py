@@ -17,6 +17,12 @@ from kubernetes.client import ApiClient, Configuration
 from kubernetes.client.exceptions import ApiException
 from kubernetes.config.kube_config import _get_kube_config_loader
 
+import worlds.integrations.eks as eks
+
+INTEGRATIONS = {
+    'eks': eks
+}
+
 
 class Pipeline(models.Model):
     name = models.CharField(max_length=70)
@@ -106,6 +112,18 @@ class Pipeline(models.Model):
                 ret.append({'name': key, 'value': value})
 
         return ret
+
+    def scale_up(self):
+        if self.force_scaling:
+            for key, mod in INTEGRATIONS.items():
+                if key in self.force_scaling:
+                    return mod.scale_up(self, self.force_scaling[key])
+
+    def scale_down(self):
+        if self.force_scaling:
+            for key, mod in INTEGRATIONS.items():
+                if key in self.force_scaling:
+                    return mod.scale_down(self, self.force_scaling[key])
 
 
 class Job(models.Model):
