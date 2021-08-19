@@ -1,5 +1,6 @@
 import io
 import time
+import random
 
 from django.db import models
 from django.core.serializers.json import DjangoJSONEncoder
@@ -32,6 +33,8 @@ class Pipeline(models.Model):
     workers = models.PositiveSmallIntegerField()
 
     scale_down_delay = models.PositiveSmallIntegerField(default=1200)
+    worker_node_selector = models.CharField(max_length=255, blank=True, null=True)
+    master_node_selector = models.CharField(max_length=255, blank=True, null=True)
 
     config = EncryptedTextField(help_text='kube config file', blank=True, null=True)
     envs = EncryptedTextField(help_text='use .env format', blank=True, null=True)
@@ -83,6 +86,7 @@ class Pipeline(models.Model):
                 parallelism=self.workers,
                 pipeline=self,
                 job_type='queue',
+                port=random.randint(10000, 30000),
             )
             qjob.save()
             self.scale_up()
@@ -97,6 +101,7 @@ class Pipeline(models.Model):
             pipeline=self,
             job_type='job',
             queue=qjob,
+            port=random.randint(40000, 65535),
         )
         job.save()
         job.run()
@@ -156,6 +161,7 @@ class Job(models.Model):
     job_definition = models.JSONField(blank=True, null=True, encoder=DjangoJSONEncoder)
     job_type = models.CharField(max_length=10, choices=JOB_TYPES)
     queue = models.ForeignKey('self', on_delete=models.CASCADE, blank=True, null=True)
+    port = models.PositiveIntegerField()
 
     pipeline = models.ForeignKey(Pipeline, on_delete=models.CASCADE)
 
@@ -206,11 +212,7 @@ class Job(models.Model):
 
         return {}
 
-    def run(self, wait=False):
-        client = self.pipeline.kube_client()
-        batch_v1 = kube_apis.BatchV1Api(client)
-
-        self.job_name = '{}-{}-{}'.format(self.job_type, self.command[0], int(time.time() * 1000))
+    def pod_spec(self):
         job_path = '{}/{}'.format(self.job_name, timezone.now().strftime('%Y/%m'))
         local_envs = {}
         if self.job_type == 'queue':
@@ -218,6 +220,34 @@ class Job(models.Model):
                 'JOB_NAME': self.job_name,
                 'JOB_PATH': job_path
             }
+
+        ret = {
+            'imagePullSecrets': [{'name': 'regcred'}], # todo: abstract for user input
+            'containers': [{
+                'name': self.job_name,
+                'image': self.image,
+                'command': self.command,
+                'env': self.pipeline.env_list(local_envs),
+                'ports': [{'hostPort': self.port, 'containerPort': self.port}] # this is hack to get one pod per node
+            }],
+            'restartPolicy': 'OnFailure'
+        }
+
+        if self.job_type == 'queue' and self.pipeline.worker_node_selector:
+            key, value = self.pipeline.worker_node_selector.split('=')
+            ret['nodeSelector'] = {key: value}
+
+        elif self.job_type == 'job' and self.pipeline.master_node_selector:
+            key, value = self.pipeline.master_node_selector.split('=')
+            ret['nodeSelector'] = {key: value}
+
+        return ret
+
+    def run(self, wait=False):
+        client = self.pipeline.kube_client()
+        batch_v1 = kube_apis.BatchV1Api(client)
+
+        self.job_name = '{}-{}-{}'.format(self.job_type, self.command[0], int(time.time() * 1000))
 
         job = {
             'apiVersion': 'batch/v1',
@@ -227,19 +257,7 @@ class Job(models.Model):
                 'parallelism': self.parallelism,
                 'completions': self.parallelism,
                 'ttlSecondsAfterFinished': 60 * 60, # cleanup pod after 1 hour
-                'template': {
-                    'spec': {
-                        'imagePullSecrets': [{'name': 'regcred'}], # todo: abstract for user input
-                        'containers': [{
-                            'name': self.job_name,
-                            'image': self.image,
-                            'command': self.command,
-                            'env': self.pipeline.env_list(local_envs),
-                            'ports': [{'hostPort': 17777, 'containerPort': 17777}] # this is hack to get one pod per node
-                        }],
-                        'restartPolicy': 'OnFailure'
-                    }
-                },
+                'template': {'spec': self.pod_spec()},
                 'backoffLimit': 4
             }
         }
