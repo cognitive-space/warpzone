@@ -9,7 +9,7 @@ from huey import crontab
 from loguru import logger
 from kubernetes.client.exceptions import ApiException
 
-from worlds.models import Job
+from worlds.models import INTEGRATIONS, Job, Pipeline
 
 
 @db_task()
@@ -43,3 +43,21 @@ def watch_log(jid, pod):
                 caches['default'].delete(pod)
                 logger.info('Shutting Down Log Stream: {}', pod)
                 return
+
+
+@db_task(retries=10, retry_delay=60)
+def scale_down(pipeline):
+    pipeline = Pipeline.objects.filter(id=pipeline).first()
+    if pipeline:
+        qjob = Job.objects.filter(
+            status__in=Job.STATUS_RUNNING,
+            pipeline=pipeline,
+            job_type='queue'
+        ).first()
+
+        if qjob:
+            return
+
+        for key, mod in INTEGRATIONS.items():
+            if key in pipeline.force_scaling:
+                return mod.scale_down(pipeline, pipeline.force_scaling[key])

@@ -31,6 +31,8 @@ class Pipeline(models.Model):
     worker_command = models.CharField(max_length=512)
     workers = models.PositiveSmallIntegerField()
 
+    scale_down_delay = models.PositiveSmallIntegerField(default=1200)
+
     config = EncryptedTextField(help_text='kube config file', blank=True, null=True)
     envs = EncryptedTextField(help_text='use .env format', blank=True, null=True)
 
@@ -120,10 +122,9 @@ class Pipeline(models.Model):
                     return mod.scale_up(self, self.force_scaling[key])
 
     def scale_down(self):
-        if self.force_scaling:
-            for key, mod in INTEGRATIONS.items():
-                if key in self.force_scaling:
-                    return mod.scale_down(self, self.force_scaling[key])
+        if self.force_scaling and self.scale_down_delay:
+            from worlds.tasks import scale_down
+            scale_down.schedule((self.id,), delay=self.scale_down_delay)
 
 
 class Job(models.Model):
