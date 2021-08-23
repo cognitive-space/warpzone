@@ -38,7 +38,7 @@
     },
     mounted() {
       if (this.pipelines.length && !this.pipeline) {
-        this.pipeline = this.pipelines[0].value;
+        this.pipeline = this.pipelines[this.pipelines.length - 1].value;
       }
     }
   };
