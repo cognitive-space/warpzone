@@ -28,6 +28,5 @@ class BasicAuthMiddleware:
                             user = authenticate(username=username, password=password)
                             if user:
                                 request._cached_user = user
-                                print('USER', user)
 
         return self.get_response(request)
