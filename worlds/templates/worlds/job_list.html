@@ -30,6 +30,7 @@
               <th class="text-left">
                 Created
               </th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -47,6 +48,9 @@
               <td class="text-center">{{ j.succeeded }}/{{ j.failed }}</td>
               <td>{{ j.get_status_display }}</td>
               <td>{{ j.created|naturaltime }}</td>
+              <td>
+                <v-btn icon small href="/?image={{ j.image|urlencode }}&command={{ j.cmd|urlencode }}&pipeline={{ j.pipeline.id }}"><v-icon class="mdi mdi-content-copy"></v-icon></v-btn>
+              </td>
             </tr>
             {% endfor %}
           </tbody>
