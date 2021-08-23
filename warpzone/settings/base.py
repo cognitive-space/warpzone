@@ -149,7 +149,7 @@ HUEY = {
     'blocking': True,
     'connection': {'url': HUEY_URL},
     'consumer': {
-        'workers': int(os.environ.get('WORKERS', '4')),
+        'workers': int(os.environ.get('WORKERS', '8')),
         'worker_type': 'thread',
         'initial_delay': 0.1,
         'backoff': 1.15,
