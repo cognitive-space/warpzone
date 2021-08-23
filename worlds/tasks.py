@@ -9,7 +9,7 @@ from huey import crontab
 from loguru import logger
 from kubernetes.client.exceptions import ApiException
 
-from worlds.models import INTEGRATIONS, Job, Pipeline
+from worlds.models import INTEGRATIONS, Job, Pipeline, StreamLog
 
 
 @db_task()
@@ -25,24 +25,33 @@ def init_job_checks():
         update_job_status(jid)
 
 
-@db_task(retries=30, retry_delay=30)
+@db_task(retries=20, retry_delay=30)
 def watch_log(jid, pod):
     time.sleep(5)
     job = Job.objects.filter(id=jid).first()
     client = caches['default'].get_client('default')
 
     if job:
-        for event in job.watch_pod(pod):
-            msg = json.dumps({'type': 'log', 'data': event + '\n'})
-            client.rpush(pod, msg)
+        logger.info('Starting log watch: {} {}', job, pod)
+        log = StreamLog.objects.filter(job=job, pod=pod).first()
+        if not log:
+            log = StreamLog(job=job, pod=pod)
 
-            # todo: kill faster
-            shutdown = caches['default'].get(f'shutdown-{pod}')
-            if shutdown:
-                caches['default'].delete(f'shutdown-{pod}')
-                caches['default'].delete(pod)
-                logger.info('Shutting Down Log Stream: {}', pod)
-                return
+        for event in job.watch_pod(pod):
+            if log.logs:
+                log.lines = len(log.logs.split('\n'))
+
+            else:
+                log.lines = 0
+                log.logs = ''
+
+            log.logs += event + '\n'
+            log.lines += 1
+            log.save()
+
+        log.status = 'completed'
+        log.save()
+        logger.info('Completed log watch: {} {}', job, pod)
 
 
 @db_task(retries=10, retry_delay=60)

@@ -6,7 +6,7 @@ from django.utils.html import mark_safe
 
 from django_json_widget.widgets import JSONEditorWidget
 
-from worlds.models import Pipeline, Job
+from worlds.models import Pipeline, Job, StreamLog
 
 
 @admin.register(Pipeline)
@@ -46,3 +46,11 @@ class JobAdmin(admin.ModelAdmin):
             img[-1] = img[-1][:8]
 
         return ":".join(img)
+
+
+@admin.register(StreamLog)
+class StreamLogAdmin(admin.ModelAdmin):
+    list_display= ('pod', 'job', 'lines', 'status', 'modified')
+    search_fields = ('pod', 'job__job_name')
+    date_hierarchy = 'modified'
+    raw_id_fields = ('job',)

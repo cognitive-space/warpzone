@@ -14,8 +14,7 @@ from asgiref.sync import sync_to_async
 
 from loguru import logger
 
-from worlds.models import Job
-from worlds.tasks import watch_log
+from worlds.models import Job, StreamLog
 
 
 def add_websocket(app):
@@ -54,21 +53,36 @@ def get_job(jid, obj=False):
     return {}
 
 
+def get_log(job, pod, obj=False):
+    return StreamLog.objects.filter(job=job, pod=pod).first()
+
+
 async def watch_log_data(job, pod, send, log_queue):
-    watch_log(job, pod)
-    client = caches['default'].get_client('default')
+    lines = 0
+    wait = 0.1
 
     while 1:
-        await asyncio.sleep(0.1)
+        try:
+            await asyncio.sleep(wait)
+            wait = 5.0
 
-        while 1:
-            msg = client.lpop(pod)
+            log = await sync_to_async(get_log, thread_sensitive=True)(job, pod)
+            if log:
+                if log.lines != lines:
+                    line_array = log.logs.split('\n')[lines:log.lines - 1]
+                    for l in line_array:
+                        msg = {'type': 'log', 'data': l + '\n'}
+                        await send({'type': 'websocket.send', 'text': json.dumps(msg)})
 
-            if msg:
-                await send({'type': 'websocket.send', 'text': msg.decode()})
+                    lines = log.lines - 1
 
-            else:
-                break
+                if log.status == 'completed':
+                    break
+
+        except:
+            import traceback
+            traceback.print_exc()
+            raise
 
         try:
             if log_queue.get_nowait():

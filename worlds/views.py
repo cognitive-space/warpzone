@@ -9,7 +9,6 @@ from django.core.paginator import Paginator
 
 from worlds.models import Pipeline, Job
 
-
 @login_required
 def start_job(request):
     if request.method == 'POST':

@@ -193,6 +193,7 @@ class Job(models.Model):
     status = models.CharField(max_length=25, choices=STATUS, default='created')
 
     pods = ArrayField(models.CharField(max_length=255), blank=True, null=True)
+    pod_watchers = ArrayField(models.CharField(max_length=255), blank=True, null=True)
 
     log_data = models.JSONField(blank=True, null=True)
 
@@ -340,6 +341,8 @@ class Job(models.Model):
         return status
 
     def update_status(self, client=None, logs=False, wait=False):
+        from worlds.tasks import watch_log
+
         if client is None:
             client = self.pipeline.kube_client()
 
@@ -347,6 +350,13 @@ class Job(models.Model):
 
         while 1:
             self.pods = self.get_pods(client)
+            if not self.pod_watchers:
+                self.pod_watchers = []
+
+            for p in self.pods:
+                if p not in self.pod_watchers:
+                    watch_log(self.id, p)
+                    self.pod_watchers.append(p)
 
             try:
                 stats = self.job_status(batch_v1)
@@ -424,3 +434,25 @@ class Job(models.Model):
         w = kube_watch.Watch()
         for e in w.stream(v1.read_namespaced_pod_log, name=pod_name, namespace='default'):
             yield e
+
+class StreamLog(models.Model):
+    STATUS = (
+        ('created', 'Created'),
+        ('completed', 'Completed'),
+    )
+
+    job = models.ForeignKey(Job, on_delete=models.CASCADE)
+    pod = models.CharField(max_length=255)
+    logs = models.TextField(blank=True, null=True)
+    lines = models.PositiveIntegerField(default=0)
+    status = models.CharField(max_length=25, choices=STATUS, default='created')
+
+    created = models.DateTimeField(auto_now_add=True)
+    modified = models.DateTimeField(auto_now=True, db_index=True)
+
+    class Meta:
+        ordering = ['-modified']
+        unique_together = [['job', 'pod']]
+
+    def __str__(self):
+        return self.pod
