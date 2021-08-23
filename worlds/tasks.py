@@ -16,10 +16,27 @@ from worlds.models import INTEGRATIONS, Job, Pipeline, StreamLog
 def update_job_status(jid):
     job = Job.objects.filter(id=jid).first()
     if job:
-        job.update_status(logs=True)
+        try:
+            job.update_status(logs=True)
+
+        except ApiException as exc:
+            if exc.status == 400:
+                if 'ContainerCreating' in json.loads(exc.body.decode())['message']:
+                    job.status = 'downloading'
+                    job.save()
+                    return
+
+            raise
 
 
 @db_periodic_task(crontab(minute='*'))
+def init_job_checks_launcher():
+    init_job_checks()
+    init_job_checks.schedule(delay=20)
+    init_job_checks.schedule(delay=40)
+
+
+@db_task()
 def init_job_checks():
     for jid in Job.objects.exclude(status__in=Job.STATUS_DONE).values_list('id', flat=True):
         update_job_status(jid)

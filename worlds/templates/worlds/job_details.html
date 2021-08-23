@@ -26,7 +26,7 @@
               <v-btn v-if="completed && pod" :href="`./${pod}.log`" download>
                 <v-icon class="mdi mdi-cloud-download"></v-icon>
               </v-btn>
-              <v-btn v-if="completed && job.downloadable" :href="`./${job.job_name}.zip`" download>
+              <v-btn v-if="job.downloadable" :href="`./${job.job_name}.zip`" download>
                 <v-icon class="mdi mdi-folder-download"></v-icon>
               </v-btn>
               <v-btn v-if="job.queue" :href="`../${job.queue}/`" target="_blank">

@@ -161,6 +161,7 @@ class Job(models.Model):
     STATUS = (
         ('created', 'Created'),
         ('submitted', 'Submitted'),
+        ('downloading', 'Downloading Container'),
         ('active', 'Active'),
         ('killed', 'Killed'),
         ('failed', 'Failed'),
@@ -229,7 +230,7 @@ class Job(models.Model):
         return {
             'job_name': self.job_name,
             'id': self.id,
-            'status': self.status,
+            'status': self.get_status_display(),
             'pipeline': self.pipeline.to_json(),
             'pods': self.pods,
             'log_data': self.complete_logs,
