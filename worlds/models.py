@@ -215,7 +215,7 @@ class Job(models.Model):
 
     @property
     def downloadable(self):
-        if self.status in self.STATUS_DONE:
+        if self.job_type == 'job' and self.status in self.STATUS_DONE:
             if self.pipeline.get_job_storage():
                 return True
 
