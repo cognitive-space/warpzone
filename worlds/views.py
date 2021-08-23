@@ -1,3 +1,6 @@
+from io import BytesIO
+from zipfile import ZipFile, ZipInfo
+
 from django import http
 from django.contrib.auth.decorators import login_required
 from django.template.response import TemplateResponse
@@ -53,6 +56,24 @@ def job_log(request, jid, pod):
         return http.HttpResponse(job.log_data[pod], content_type="text/plain")
 
     raise http.Http404
+
+@login_required
+def job_zip(self, jid, zip):
+    job = get_object_or_404(Job, id=jid)
+
+    base_path = job.pipeline.get_job_storage()
+    path = base_path / job.job_name
+    files = path.glob('**/*')
+
+    new_zip = BytesIO()
+    with ZipFile(new_zip, 'w') as new_archive:
+        for file in files:
+            contents = file.open('rb').read()
+            relpath = str(file)
+            relpath = relpath.replace(str(base_path), '')
+            new_archive.writestr(relpath, contents)
+
+    return http.HttpResponse(new_zip.getvalue(), content_type="application/zip")
 
 @login_required
 def job_kill(request, jid):

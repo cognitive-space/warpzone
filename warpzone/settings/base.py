@@ -176,5 +176,3 @@ CACHES = {
 }
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-
-# node.kubernetes.io/instance-type=c5.large

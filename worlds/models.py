@@ -8,6 +8,7 @@ from django.contrib.postgres.fields import ArrayField
 from django.utils import timezone
 
 import yaml
+from cloudpathlib import S3Client
 from dotenv import dotenv_values
 from loguru import logger
 from fernet_fields import EncryptedTextField
@@ -40,6 +41,8 @@ class Pipeline(models.Model):
     envs = EncryptedTextField(help_text='use .env format', blank=True, null=True)
 
     force_scaling = models.JSONField(blank=True, null=True)
+
+    s3_storage_url = models.CharField(max_length=255, blank=True, null=True)
 
     def __str__(self):
         return self.name
@@ -131,6 +134,28 @@ class Pipeline(models.Model):
             from worlds.tasks import scale_down
             scale_down.schedule((self.id,), delay=self.scale_down_delay)
 
+    def s3_storage_args(self):
+        ret = {}
+        if self.envs:
+            stream = io.StringIO(self.envs)
+            envs = dotenv_values(stream=stream)
+
+            if 'AWS_ACCESS_KEY_ID' in envs:
+                ret['aws_access_key_id'] = envs['AWS_ACCESS_KEY_ID']
+
+            if 'AWS_SECRET_ACCESS_KEY' in envs:
+                ret['aws_secret_access_key'] = envs['AWS_SECRET_ACCESS_KEY']
+
+            if 'AWS_S3_ENDPOINT_URL' in envs:
+                ret['endpoint_url'] = envs['AWS_S3_ENDPOINT_URL']
+
+        return ret
+
+    def get_job_storage(self):
+        if self.s3_storage_url:
+            client = S3Client(**self.s3_storage_args())
+            return client.CloudPath(self.s3_storage_url)
+
 
 class Job(models.Model):
     STATUS = (
@@ -187,6 +212,14 @@ class Job(models.Model):
     def __str__(self):
         return self.name
 
+    @property
+    def downloadable(self):
+        if self.status in self.STATUS_DONE:
+            if self.pipeline.get_job_storage():
+                return True
+
+        return False
+
     def to_json(self):
         q = None
         if self.queue:
@@ -202,7 +235,8 @@ class Job(models.Model):
             'modified': self.modified.isoformat(),
             'created': self.created.isoformat(),
             'job_type': self.job_type,
-            'queue': q
+            'queue': q,
+            'downloadable': self.downloadable,
         }
 
     @property
@@ -220,9 +254,9 @@ class Job(models.Model):
         return {}
 
     def pod_spec(self):
-        job_path = '{}/{}'.format(self.job_name, timezone.now().strftime('%Y/%m'))
+        job_path = self.job_name
         local_envs = {}
-        if self.job_type == 'queue':
+        if self.job_type == 'job':
             local_envs = {
                 'JOB_NAME': self.job_name,
                 'JOB_PATH': job_path
