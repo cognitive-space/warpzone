@@ -49,7 +49,9 @@
               <td>{{ j.get_status_display }}</td>
               <td>{{ j.created|naturaltime }}</td>
               <td>
+                {% if j.job_type == 'job' %}
                 <v-btn icon small href="/?image={{ j.image|urlencode }}&command={{ j.cmd|urlencode }}&pipeline={{ j.pipeline.id }}"><v-icon class="mdi mdi-content-copy"></v-icon></v-btn>
+                {% endif %}
               </td>
             </tr>
             {% endfor %}

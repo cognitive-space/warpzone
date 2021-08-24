@@ -270,6 +270,7 @@ class Job(models.Model):
                 'name': self.job_name,
                 'image': self.image,
                 'command': self.command,
+                'imagePullPolicy': 'Always',
                 'env': self.pipeline.env_list(local_envs),
                 'ports': [{'hostPort': self.port, 'containerPort': self.port}] # this is hack to get one pod per node
             }],
