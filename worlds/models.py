@@ -454,12 +454,14 @@ class StreamLog(models.Model):
     STATUS = (
         ('created', 'Created'),
         ('completed', 'Completed'),
+        ('failed', 'Failed'),
     )
 
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
     pod = models.CharField(max_length=255)
     logs = models.TextField(blank=True, null=True)
     lines = models.PositiveIntegerField(default=0)
+    retries = models.PositiveIntegerField(default=0)
     status = models.CharField(max_length=25, choices=STATUS, default='created')
 
     created = models.DateTimeField(auto_now_add=True)

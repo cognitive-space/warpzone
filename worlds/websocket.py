@@ -76,7 +76,7 @@ async def watch_log_data(job, pod, send, log_queue):
 
                     lines = log.lines - 1
 
-                if log.status == 'completed':
+                if log.status in ['completed', 'failed']:
                     break
 
         except:

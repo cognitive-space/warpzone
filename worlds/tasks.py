@@ -66,9 +66,22 @@ def watch_log(jid, pod):
             log.lines += 1
             log.save()
 
-        log.status = 'completed'
-        log.save()
-        logger.info('Completed log watch: {} {}', job, pod)
+        if log.lines:
+            log.status = 'completed'
+            log.save()
+            logger.info('Completed log watch: {} {}', job, pod)
+
+        else:
+            if log.retries < 5:
+                log.retries += 1
+                log.save()
+                watch_log.schedule((job.id, pod), delay=60)
+                logger.info('Retrying log watch: {} {}', job, pod)
+
+
+            else:
+                log.status = 'failed'
+                log.save()
 
 
 @db_task(retries=10, retry_delay=60)
