@@ -72,7 +72,7 @@ def watch_log(jid, pod):
             logger.info('Completed log watch: {} {}', job, pod)
 
         else:
-            if log.retries < 5:
+            if log.retries < 15:
                 log.retries += 1
                 log.save()
                 watch_log.schedule((job.id, pod), delay=60)
