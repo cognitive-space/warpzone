@@ -1,0 +1,62 @@
+{% extends 'worlds/base.html' %}{% load worlds_tags static humanize %}
+{% block title %}Pipeline List | {{ block.super }}{% endblock %}
+{% block content %}
+<v-card style="margin: 10px;">
+  <v-card-title>
+    Pipeline List
+  </v-card-title>
+  <v-card-text>
+    <v-container style="max-width: 100%;">
+      <v-pagination v-model="page" :length="{{ page_obj.paginator.num_pages }}"></v-pagination>
+      <v-simple-table>
+        <template v-slot:default>
+          <thead>
+            <tr>
+              <th class="text-left">
+                Pipeline
+              </th>
+              <th class="text-left">
+                Command
+              </th>
+              <th class="text-left">
+                Workers
+              </th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in page_obj %}
+            <tr>
+              <td>
+                {{ p.name }}
+              </td>
+              <td>
+                <pre>{{ p.worker_command }}</pre>
+              </td>
+              <td>{{ p.workers }}</td>
+              <td>
+                {% if p.running %}
+                <v-btn icon small href="/worlds/job/{{ p.running.id }}/" title="Currently Running">
+                  <v-icon class="mdi mdi-progress-clock"></v-icon>
+                </v-btn>
+                {% else %}
+                <v-btn icon small href="/worlds/pipeline/start/?pipeline={{ p.id }}" title="Start Pipeline">
+                  <v-icon class="mdi mdi-pipe"></v-icon>
+                </v-btn>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </template>
+      </v-simple-table>
+      <v-pagination v-model="page" :length="{{ page_obj.paginator.num_pages }}"></v-pagination>
+    </v-container>
+  </v-card-text>
+</v-card>
+{% endblock %}
+{% block mixin %}
+<script>
+  var MIXIN = {};
+</script>
+{% endblock %}

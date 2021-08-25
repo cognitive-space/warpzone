@@ -69,6 +69,29 @@ class Pipeline(models.Model):
         ret = core_v1.list_pod_for_all_namespaces(watch=False)
         return ret.items
 
+    def running(self):
+        qjob = Job.objects.filter(
+            status__in=Job.STATUS_RUNNING,
+            pipeline=self,
+            job_type='queue'
+        ).first()
+
+        return qjob
+
+    def start_pipeline(self, image):
+        qjob = Job(
+            command=self.worker_command.split(' '),
+            image=image,
+            parallelism=self.workers,
+            pipeline=self,
+            job_type='queue',
+            port=random.randint(10000, 30000),
+        )
+        qjob.save()
+        self.scale_up()
+        qjob.run()
+        return qjob
+
     def run_job(self, image, job_command, wait=False):
         qjob = Job.objects.filter(
             image=image,
@@ -83,17 +106,7 @@ class Pipeline(models.Model):
                 qjob = None
 
         if qjob is None:
-            qjob = Job(
-                command=self.worker_command.split(' '),
-                image=image,
-                parallelism=self.workers,
-                pipeline=self,
-                job_type='queue',
-                port=random.randint(10000, 30000),
-            )
-            qjob.save()
-            self.scale_up()
-            qjob.run()
+            qjob = self.start_pipeline(image)
 
         time.sleep(0.1)
 

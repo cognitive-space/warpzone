@@ -81,5 +81,36 @@ def job_kill(request, jid):
     return http.HttpResponseRedirect("/")
 
 
+@login_required
+def pipeline_list(request):
+    pipes = Pipeline.objects.all().order_by('name')
+    paginator = Paginator(pipes, 50)
+
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    context = {
+        'page_obj': page_obj
+    }
+    return TemplateResponse(request, 'worlds/pipeline_list.html', context)
+
+
+@login_required
+def start_pipeline(request):
+    if request.method == 'POST':
+        image = request.POST['image']
+        pipeline = get_object_or_404(Pipeline, id=request.POST['pipeline'])
+        qjob = pipeline.start_pipeline(image)
+        return http.HttpResponseRedirect(f'/worlds/job/{qjob.id}/')
+
+    pipelines = []
+    for p in Pipeline.objects.all():
+        pipelines.append({'text': p.name, 'value': p.id})
+
+    context = {
+        'pipelines': pipelines
+    }
+    return TemplateResponse(request, 'worlds/start_pipeline.html', context)
+
+
 def favicon(request):
     return http.HttpResponseRedirect("/static/favicon.ico")

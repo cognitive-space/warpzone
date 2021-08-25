@@ -51,6 +51,8 @@
               <td>
                 {% if j.job_type == 'job' %}
                 <v-btn icon small href="/?image={{ j.image|urlencode }}&command={{ j.cmd|urlencode }}&pipeline={{ j.pipeline.id }}"><v-icon class="mdi mdi-content-copy"></v-icon></v-btn>
+                {% elif not j.pipeline.running %}
+                <v-btn icon small href="/worlds/pipeline/start/?image={{ j.image|urlencode }}&pipeline={{ j.pipeline.id }}"><v-icon class="mdi mdi-pipe"></v-icon></v-btn>
                 {% endif %}
               </td>
             </tr>
