@@ -19,7 +19,7 @@ def start_job(request):
         return http.HttpResponseRedirect(f'/worlds/job/{job.id}/')
 
     pipelines = []
-    for p in Pipeline.objects.all():
+    for p in Pipeline.objects.all().order_by('name'):
         pipelines.append({'text': p.name, 'value': p.id})
 
     context = {
@@ -103,7 +103,7 @@ def start_pipeline(request):
         return http.HttpResponseRedirect(f'/worlds/job/{qjob.id}/')
 
     pipelines = []
-    for p in Pipeline.objects.all():
+    for p in Pipeline.objects.all().order_by('name'):
         pipelines.append({'text': p.name, 'value': p.id})
 
     context = {
