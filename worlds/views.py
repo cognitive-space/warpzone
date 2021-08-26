@@ -14,8 +14,9 @@ def start_job(request):
     if request.method == 'POST':
         image = request.POST['image']
         command = request.POST['command']
+        envs = request.POST.get('envs')
         pipeline = get_object_or_404(Pipeline, id=request.POST['pipeline'])
-        qjob, job = pipeline.run_job(image, command)
+        qjob, job = pipeline.run_job(image, command, envs)
         return http.HttpResponseRedirect(f'/worlds/job/{job.id}/')
 
     pipelines = []
@@ -98,8 +99,9 @@ def pipeline_list(request):
 def start_pipeline(request):
     if request.method == 'POST':
         image = request.POST['image']
+        envs = request.POST.get('envs')
         pipeline = get_object_or_404(Pipeline, id=request.POST['pipeline'])
-        qjob = pipeline.start_pipeline(image)
+        qjob = pipeline.start_pipeline(image, envs)
         return http.HttpResponseRedirect(f'/worlds/job/{qjob.id}/')
 
     pipelines = []

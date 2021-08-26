@@ -11,6 +11,9 @@
           <v-text-field label="Image" name="image" outlined required v-model="image"></v-text-field>
         </v-row>
         <v-row>
+          <v-textarea name="envs" label="Custom ENVs (.env file format)" outlined v-model="envs"></v-textarea>
+        </v-row>
+        <v-row>
           <v-select :items="pipelines" label="Pipeline" outlined name="pipeline" v-model="pipeline"></v-select>
         </v-row>
       </v-container>
@@ -29,7 +32,8 @@
       return {
         pipelines: {{ pipelines|json_data }},
         pipeline: parseInt(params.get('pipeline') || '0'),
-        image: params.get('image') || ''
+        image: params.get('image') || '',
+        envs: params.get('envs') || ''
       };
     },
     mounted() {

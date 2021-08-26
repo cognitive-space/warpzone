@@ -16,6 +16,9 @@ from worlds.models import INTEGRATIONS, Job, Pipeline, StreamLog
 def update_job_status(jid):
     job = Job.objects.filter(id=jid).first()
     if job:
+        if job.status in job.STATUS_DONE:
+            return
+
         try:
             job.update_status(logs=True)
 
@@ -42,13 +45,16 @@ def init_job_checks():
         update_job_status(jid)
 
 
-@db_task(retries=20, retry_delay=30)
+@db_task(retries=60, retry_delay=10)
 def watch_log(jid, pod):
     time.sleep(5)
     job = Job.objects.filter(id=jid).first()
     client = caches['default'].get_client('default')
 
     if job:
+        if job.status in job.STATUS_DONE:
+            return
+
         logger.info('Starting log watch: {} {}', job, pod)
         log = StreamLog.objects.filter(job=job, pod=pod).first()
         if not log:

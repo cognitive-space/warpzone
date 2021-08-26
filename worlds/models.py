@@ -92,7 +92,7 @@ class Pipeline(models.Model):
 
         return ret
 
-    def start_pipeline(self, image):
+    def start_pipeline(self, image, job_envs=None):
         qjob = Job(
             command=self.worker_command.split(' '),
             image=image,
@@ -100,13 +100,14 @@ class Pipeline(models.Model):
             pipeline=self,
             job_type='queue',
             port=random.randint(10000, 30000),
+            envs=job_envs,
         )
         qjob.save()
         self.scale_up()
         qjob.run()
         return qjob
 
-    def run_job(self, image, job_command, wait=False):
+    def run_job(self, image, job_command, job_envs=None, wait=False):
         qjob = Job.objects.filter(
             image=image,
             status__in=Job.STATUS_RUNNING,
@@ -120,7 +121,7 @@ class Pipeline(models.Model):
                 qjob = None
 
         if qjob is None:
-            qjob = self.start_pipeline(image)
+            qjob = self.start_pipeline(image, job_envs)
 
         time.sleep(0.1)
 
@@ -132,21 +133,27 @@ class Pipeline(models.Model):
             job_type='job',
             queue=qjob,
             port=random.randint(40000, 65535),
+            envs=job_envs,
         )
         job.save()
         job.run()
         return qjob, job
 
-    def env_list(self, envs=None):
+    def env_list(self, local_envs_dict=None, job_envs=None):
         ret = []
+        if local_envs_dict:
+            for key, value in local_envs_dict.items():
+                ret.append({'name': key, 'value': value})
+
         if self.envs:
             stream = io.StringIO(self.envs)
             for name, value in dotenv_values(stream=stream).items():
                 ret.append({'name': name, 'value': value})
 
-        if envs:
-            for key, value in envs.items():
-                ret.append({'name': key, 'value': value})
+        if job_envs:
+            stream = io.StringIO(job_envs)
+            for name, value in dotenv_values(stream=stream).items():
+                ret.append({'name': name, 'value': value})
 
         return ret
 
@@ -205,6 +212,7 @@ class Job(models.Model):
 
     command = ArrayField(models.CharField(max_length=255))
     image = models.CharField(max_length=255)
+    envs = EncryptedTextField(help_text='use .env format', blank=True, null=True)
     parallelism = models.PositiveSmallIntegerField(default=1)
 
     succeeded = models.PositiveSmallIntegerField(default=0)
@@ -266,6 +274,7 @@ class Job(models.Model):
             'job_type': self.job_type,
             'queue': q,
             'downloadable': self.downloadable,
+            'envs': self.envs,
         }
 
     @property
@@ -297,8 +306,7 @@ class Job(models.Model):
                 'name': self.job_name,
                 'image': self.image,
                 'command': self.pipeline.full_command(self.command),
-                'imagePullPolicy': 'Always',
-                'env': self.pipeline.env_list(local_envs),
+                'env': self.pipeline.env_list(local_envs, self.envs),
                 'ports': [{'hostPort': self.port, 'containerPort': self.port}] # this is hack to get one pod per node
             }],
             'restartPolicy': 'OnFailure'
@@ -326,7 +334,7 @@ class Job(models.Model):
             'metadata': {'name': self.job_name},
             'spec': {
                 'parallelism': self.parallelism,
-                'completions': self.parallelism,
+                # 'completions': self.parallelism,
                 'ttlSecondsAfterFinished': 60 * 60, # cleanup pod after 1 hour
                 'template': {'spec': self.pod_spec()},
                 'backoffLimit': 4
@@ -378,7 +386,13 @@ class Job(models.Model):
         batch_v1 = kube_apis.BatchV1Api(client)
 
         while 1:
-            self.pods = self.get_pods(client)
+            if not self.pods:
+                self.pods = []
+
+            for p in self.get_pods(client):
+                if p not in self.pods:
+                    self.pods.append(p)
+
             if not self.pod_watchers:
                 self.pod_watchers = []
 
@@ -408,6 +422,7 @@ class Job(models.Model):
                 except:
                     pass
 
+                self.fix_logs()
                 if self.job_type == 'queue':
                     self.pipeline.scale_down()
 
@@ -420,6 +435,16 @@ class Job(models.Model):
                 break
 
             time.sleep(3)
+
+    def fix_logs(self):
+        for p in self.pods:
+            logs = self.log_data.get(p, None)
+            if not logs or logs.startswith('unable to retrieve container logs for docker://'):
+                streamlog = StreamLog.objects.filter(job=self, pod=p).first()
+                if streamlog:
+                    self.log_data[streamlog.pod] = streamlog.logs
+
+        self.save()
 
     def get_pods(self, client):
         core_v1 = kube_apis.CoreV1Api(client)
@@ -440,7 +465,8 @@ class Job(models.Model):
         for pod_name in self.get_pods(client):
             log_response = core_v1.read_namespaced_pod_log(
                 name=pod_name, namespace="default", _return_http_data_only=True, _preload_content=False)
-            self.log_data[pod_name] = log_response.data.decode()
+            logtext = log_response.data.decode()
+            self.log_data[pod_name] = logtext
 
         self.save()
 
