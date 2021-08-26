@@ -31,6 +31,8 @@ class Pipeline(models.Model):
     slug = models.SlugField(max_length=70, unique=True)
 
     worker_command = models.CharField(max_length=512)
+    pre_command = models.CharField(max_length=512, blank=True, null=True)
+    post_command = models.CharField(max_length=512, blank=True, null=True)
     workers = models.PositiveSmallIntegerField()
 
     scale_down_delay = models.PositiveSmallIntegerField(default=1200)
@@ -77,6 +79,18 @@ class Pipeline(models.Model):
         ).first()
 
         return qjob
+
+    def full_command(self, cmd):
+        ret = []
+        if self.pre_command:
+            ret += self.pre_command.split(' ')
+
+        ret += cmd
+
+        if self.post_command:
+            ret += self.post_command.split(' ')
+
+        return ret
 
     def start_pipeline(self, image):
         qjob = Job(
@@ -282,7 +296,7 @@ class Job(models.Model):
             'containers': [{
                 'name': self.job_name,
                 'image': self.image,
-                'command': self.command,
+                'command': self.pipeline.full_command(self.command),
                 'imagePullPolicy': 'Always',
                 'env': self.pipeline.env_list(local_envs),
                 'ports': [{'hostPort': self.port, 'containerPort': self.port}] # this is hack to get one pod per node
