@@ -13,6 +13,7 @@ from worlds.models import Pipeline, Job, StreamLog
 class PipelineAdmin(admin.ModelAdmin):
     list_display = ('name', 'slug', 'workers')
     search_fields = ('name', 'slug', 'worker_command')
+    save_as = True
 
     formfield_overrides = {
         JSONField: {'widget': JSONEditorWidget()},
