@@ -1,7 +1,9 @@
+import datetime
 import json
 import time
 
 from django.core.cache import caches
+from django.utils import timezone
 
 from huey.contrib.djhuey import db_periodic_task, db_task
 from huey import crontab
@@ -106,3 +108,18 @@ def scale_down(pipeline):
         for key, mod in INTEGRATIONS.items():
             if key in pipeline.force_scaling:
                 return mod.scale_down(pipeline, pipeline.force_scaling[key])
+
+
+@db_periodic_task(crontab(hour='*/4', minute="0"))
+def cleanup():
+    old = timezone.now() - datetime.timedelta(hours=24)
+    qs = StreamLog.objects.filter(modified__lt=old)
+    cnt = qs.count()
+    qs.delete()
+    logger.info('Deleted StreamLogs: {}', cnt)
+
+    old = timezone.now() - datetime.timedelta(days=7)
+    qs = Job.objects.filter(modified__lt=old)
+    cnt = qs.count()
+    qs.delete()
+    logger.info('Deleted Jobs: {}', cnt)
