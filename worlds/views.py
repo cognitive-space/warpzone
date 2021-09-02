@@ -31,7 +31,7 @@ def start_job(request):
 
 @login_required
 def job_list(request):
-    jobs = Job.objects.all().select_related('pipeline')
+    jobs = Job.objects.all().select_related('pipeline').defer('log_data')
     paginator = Paginator(jobs, 50)
 
     page_number = request.GET.get('page')
