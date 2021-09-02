@@ -72,13 +72,14 @@ class Pipeline(models.Model):
         return ret.items
 
     def running(self):
-        qjob = Job.objects.filter(
-            status__in=Job.STATUS_RUNNING,
-            pipeline=self,
-            job_type='queue'
-        ).first()
+        if not hasattr(self, '_running'):
+            self._running = Job.objects.filter(
+                status__in=Job.STATUS_RUNNING,
+                pipeline=self,
+                job_type='queue'
+            ).first()
 
-        return qjob
+        return self._running
 
     def full_command(self, cmd):
         ret = []
@@ -408,6 +409,9 @@ class Job(models.Model):
                 if exc.status == 404:
                     self.status = 'killed'
                     self.save()
+                    if self.job_type == 'queue':
+                        self.pipeline.scale_down()
+
                     break
 
                 else:

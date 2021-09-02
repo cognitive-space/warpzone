@@ -1,7 +1,10 @@
 import base64
 
+from django.db import connection
+from django.conf import settings
 from django.contrib.auth import authenticate
 
+from loguru import logger
 
 class BasicAuthMiddleware:
     def __init__(self, get_response):
@@ -30,3 +33,21 @@ class BasicAuthMiddleware:
                                 request._cached_user = user
 
         return self.get_response(request)
+
+
+class DebugMiddleWare:
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        if settings.DEBUG:
+            if settings.DEBUG_SQL:
+                for q in connection.queries:
+                    logger.info('Query: {}', q['sql'])
+                    logger.info('Query Time: {}', q['time'])
+
+            logger.info('Total Queries: {}', len(connection.queries))
+
+        return response

@@ -4,6 +4,7 @@ from warpzone.settings.base import *
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
+DEBUG_SQL = False
 
 STATIC_ROOT = BASE_DIR / 'static-compiled'
 SECURE_SSL_REDIRECT = True
