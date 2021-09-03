@@ -104,7 +104,7 @@ def scale_down(pipeline):
 
         if qjob:
             logger.info('Queue Still Running: Pipeline: {}; Job: {}', pipeline.id, qjob.id)
-            scale_down.schedule((pipeline.id,), delay=300)
+            scale_down.schedule((pipeline.id,), delay=600)
             return
 
         for key, mod in INTEGRATIONS.items():
