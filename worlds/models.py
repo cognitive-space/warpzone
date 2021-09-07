@@ -3,6 +3,7 @@ import time
 import random
 
 from django.db import models
+from django.core.files.base import ContentFile
 from django.core.serializers.json import DjangoJSONEncoder
 from django.contrib.postgres.fields import ArrayField
 from django.utils import timezone
@@ -232,8 +233,6 @@ class Job(models.Model):
     pods = ArrayField(models.CharField(max_length=255), blank=True, null=True)
     pod_watchers = ArrayField(models.CharField(max_length=255), blank=True, null=True)
 
-    log_data = models.JSONField(blank=True, null=True)
-
     created = models.DateTimeField(auto_now_add=True)
     modified = models.DateTimeField(auto_now=True)
 
@@ -288,7 +287,11 @@ class Job(models.Model):
     @property
     def complete_logs(self):
         if self.status in self.STATUS_DONE:
-            return self.log_data
+            logs = {}
+            for log in CompletedLog.objects.filter(job=self):
+                logs[log.pod] = log.log_file.url
+
+            return logs
 
         return {}
 
@@ -433,22 +436,33 @@ class Job(models.Model):
                 break
 
             if not wait:
-                if logs:
-                    self.save_logs(client)
-
                 break
 
             time.sleep(3)
 
     def fix_logs(self):
         for p in self.pods:
-            logs = self.log_data.get(p, None)
-            if not logs or logs.startswith('unable to retrieve container logs for docker://'):
-                streamlog = StreamLog.objects.filter(job=self, pod=p).first()
-                if streamlog:
-                    self.log_data[streamlog.pod] = streamlog.logs
+            log = CompletedLog.objects.filter(job=self, pod=p).first()
+            if log and log.log_file:
+                streamed = None
+                with log.log_file.open('r') as fh:
+                    line = fh.readline()
+                    if line.startswith('unable to retrieve container logs for docker://'):
+                        streamlog = StreamLog.objects.filter(job=self, pod=p).first()
+                        if streamlog:
+                            streamed = streamlog.log_file
 
-        self.save()
+                if streamed:
+                    with streamed.open('r') as rh:
+                        with log.log_file.open('w') as wh:
+                            while 1:
+                                data = rh.read(1024)
+                                if data:
+                                    wh.write(data)
+
+                                else:
+                                    break
+
 
     def get_pods(self, client):
         core_v1 = kube_apis.CoreV1Api(client)
@@ -465,14 +479,17 @@ class Job(models.Model):
 
     def save_logs(self, client):
         core_v1 = kube_apis.CoreV1Api(client)
-        self.log_data = {}
         for pod_name in self.get_pods(client):
             log_response = core_v1.read_namespaced_pod_log(
                 name=pod_name, namespace="default", _return_http_data_only=True, _preload_content=False)
             logtext = log_response.data.decode()
-            self.log_data[pod_name] = logtext
 
-        self.save()
+            log = CompletedLog.objects.filter(job=self, pod=pod_name).first()
+            if not log:
+                log = CompletedLog(job=self, pod=pod_name)
+
+            log.log_file.save(f'{pod_name}.completed.log', content=ContentFile(logtext), save=False)
+            log.save()
 
     def kill(self):
         client = self.pipeline.kube_client()
@@ -494,6 +511,21 @@ class Job(models.Model):
         for e in w.stream(v1.read_namespaced_pod_log, name=pod_name, namespace='default'):
             yield e
 
+
+class CompletedLog(models.Model):
+    job = models.ForeignKey(Job, on_delete=models.CASCADE)
+    pod = models.CharField(max_length=255)
+    log_file = models.FileField(upload_to='warpzone/%Y/%m/%d/', blank=True, null=True)
+    created = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created']
+        unique_together = [['job', 'pod']]
+
+    def __str__(self):
+        return self.pod
+
+
 class StreamLog(models.Model):
     STATUS = (
         ('created', 'Created'),
@@ -503,7 +535,6 @@ class StreamLog(models.Model):
 
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
     pod = models.CharField(max_length=255)
-    logs = models.TextField(blank=True, null=True)
     log_file = models.FileField(upload_to='warpzone/%Y/%m/%d/', blank=True, null=True)
     lines = models.PositiveIntegerField(default=0)
     retries = models.PositiveIntegerField(default=0)

@@ -127,7 +127,16 @@
 
         var session = this.editor.getSession();
         if (this.completed) {
-          session.setValue(this.job.log_data[to]);
+          axios.get(this.job.log_data[to])
+            .then((result) => {
+              session.setValue(result.data);
+              if (this.autoscroll) {
+                this.scroll_bottom();
+              }
+            })
+            .catch(() => {
+              alert("Error fetching log.");
+            });
         } else {
           session.setValue('');
           this.connect(to);

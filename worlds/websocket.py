@@ -71,7 +71,7 @@ async def watch_log_data(job, pod, send, log_queue):
                 if log.lines != lines:
                     lines_send = ''
                     line_array = []
-                    for i in range(lines, log.lines - 1):
+                    for i in range(lines, log.lines):
                         line_array.append(f'{pod}-{i}')
 
                     if line_array:
@@ -86,7 +86,7 @@ async def watch_log_data(job, pod, send, log_queue):
                             msg = {'type': 'log', 'data': msg_lines}
                             await send({'type': 'websocket.send', 'text': json.dumps(msg)})
 
-                    lines = log.lines - 1
+                    lines = log.lines
 
                 if log.status in ['completed', 'failed']:
                     break

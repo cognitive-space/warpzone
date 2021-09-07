@@ -8,5 +8,5 @@ DEBUG = True
 
 DEBUG_SQL = os.environ.get('DEBUG_SQL')
 
-MEDIA_ROOT = BASE_DIR / '..' / 'uploads'
+MEDIA_ROOT = BASE_DIR / 'uploads'
 MEDIA_URL = '/media/'
