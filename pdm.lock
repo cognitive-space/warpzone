@@ -16,18 +16,18 @@ summary = "Specifications for callback functions passed in to an API"
 
 [[package]]
 name = "boto3"
-version = "1.18.24"
+version = "1.18.36"
 requires_python = ">=3.6"
 summary = "The AWS SDK for Python"
 dependencies = [
-    "botocore<1.22.0,>=1.21.24",
+    "botocore<1.22.0,>=1.21.36",
     "jmespath<1.0.0,>=0.7.1",
     "s3transfer<0.6.0,>=0.5.0",
 ]
 
 [[package]]
 name = "botocore"
-version = "1.21.24"
+version = "1.21.36"
 requires_python = ">=3.6"
 summary = "Low-level, data-driven core of boto 3."
 dependencies = [
@@ -152,6 +152,15 @@ version = "3.0.0"
 summary = "Redis Cache Backend for Django"
 dependencies = [
     "redis<4.0",
+]
+
+[[package]]
+name = "django-storages"
+version = "1.11.1"
+requires_python = ">=3.5"
+summary = "Support for many storage backends in Django"
+dependencies = [
+    "Django>=2.2",
 ]
 
 [[package]]
@@ -518,7 +527,7 @@ summary = "A small Python utility to set file creation time on Windows"
 
 [metadata]
 lock_version = "3.1"
-content_hash = "sha256:4a2756fe6e6c16e147cf243fde8babeedc6c09b2ba7f2ea64add7d1622568437"
+content_hash = "sha256:78e368fcd6c1a03b672e08d869f8b69b78d40929b9e656392a3f89f2aa1a274f"
 
 [metadata.files]
 "appnope 0.1.2" = [
@@ -533,13 +542,13 @@ content_hash = "sha256:4a2756fe6e6c16e147cf243fde8babeedc6c09b2ba7f2ea64add7d162
     {file = "backcall-0.2.0-py2.py3-none-any.whl", hash = "sha256:fbbce6a29f263178a1f7915c1940bde0ec2b2a967566fe1c65c1dfb7422bd255"},
     {file = "backcall-0.2.0.tar.gz", hash = "sha256:5cbdbf27be5e7cfadb448baf0aa95508f91f2bbc6c6437cd9cd06e2a4c215e1e"},
 ]
-"boto3 1.18.24" = [
-    {file = "boto3-1.18.24-py3-none-any.whl", hash = "sha256:ca0d576138b7c38d7fc214716a47e6394c4e9a10fdf337d8a125961eefdc25cc"},
-    {file = "boto3-1.18.24.tar.gz", hash = "sha256:d6c030dbc08f2c0b6daff9fd26b87f4c029d984781b9b48b21c112d4a76ee081"},
+"boto3 1.18.36" = [
+    {file = "boto3-1.18.36-py3-none-any.whl", hash = "sha256:a7fccb61d95230322dd812629455df14167307c569077fa89d297eae73605ffb"},
+    {file = "boto3-1.18.36.tar.gz", hash = "sha256:4df1085f5c24504a1b1a6584947f27b67c26eda123f29d3cecce9b2fd683e09b"},
 ]
-"botocore 1.21.24" = [
-    {file = "botocore-1.21.24-py3-none-any.whl", hash = "sha256:9f896207e46580a1a720a85261f516fe60c2209f7b8b918bc330b1cb8b4a2afb"},
-    {file = "botocore-1.21.24.tar.gz", hash = "sha256:ec1c0a3f18ae6062285cc8dac747826baebe9b238bc2720ad6ce4d03bb645ec3"},
+"botocore 1.21.36" = [
+    {file = "botocore-1.21.36-py3-none-any.whl", hash = "sha256:e3e522fbe0bad1197aa7182451dc05f650310e77cf0a77749f6a5e82794c53de"},
+    {file = "botocore-1.21.36.tar.gz", hash = "sha256:5b9a7d30e44b8a0a2bbbde62ae01bf6c349017e836985a0248552b00bbce7fae"},
 ]
 "brotli 1.0.9" = [
     {file = "Brotli-1.0.9-cp27-cp27m-macosx_10_9_x86_64.whl", hash = "sha256:268fe94547ba25b58ebc724680609c8ee3e5a843202e9a381f6f9c5e8bdb5c70"},
@@ -697,6 +706,10 @@ content_hash = "sha256:4a2756fe6e6c16e147cf243fde8babeedc6c09b2ba7f2ea64add7d162
 ]
 "django-redis-cache 3.0.0" = [
     {file = "django-redis-cache-3.0.0.tar.gz", hash = "sha256:9a2eebef421d996a82098a19d17ff6b321265cd73178fa398913019764e8394a"},
+]
+"django-storages 1.11.1" = [
+    {file = "django_storages-1.11.1-py3-none-any.whl", hash = "sha256:f28765826d507a0309cfaa849bd084894bc71d81bf0d09479168d44785396f80"},
+    {file = "django-storages-1.11.1.tar.gz", hash = "sha256:c823dbf56c9e35b0999a13d7e05062b837bae36c518a40255d522fbe3750fbb4"},
 ]
 "future 0.18.2" = [
     {file = "future-0.18.2.tar.gz", hash = "sha256:b1bead90b70cf6ec3f0710ae53a525360fa360d306a86583adc6bf83a4db537d"},

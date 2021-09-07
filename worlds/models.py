@@ -504,6 +504,7 @@ class StreamLog(models.Model):
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
     pod = models.CharField(max_length=255)
     logs = models.TextField(blank=True, null=True)
+    log_file = models.FileField(upload_to='warpzone/%Y/%m/%d/', blank=True, null=True)
     lines = models.PositiveIntegerField(default=0)
     retries = models.PositiveIntegerField(default=0)
     status = models.CharField(max_length=25, choices=STATUS, default='created')

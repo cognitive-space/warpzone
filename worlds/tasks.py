@@ -3,6 +3,7 @@ import json
 import time
 
 from django.core.cache import caches
+from django.core.files.base import ContentFile
 from django.utils import timezone
 
 from huey.contrib.djhuey import db_periodic_task, db_task
@@ -62,34 +63,47 @@ def watch_log(jid, pod):
         if not log:
             log = StreamLog(job=job, pod=pod)
 
-        for event in job.watch_pod(pod):
-            if log.logs:
-                log.lines = len(log.logs.split('\n'))
+        if not log.log_file:
+            log.lines = 0
+            log.log_file.save(f'{pod}.log', content=ContentFile(''), save=False)
+
+        log.save()
+
+        buffer = {}
+        buffer_time = time.time()
+        with log.log_file.open('a') as fh:
+            for event in job.watch_pod(pod):
+                fh.write(event + '\n')
+                buffer[f'{pod}-{log.lines}'] = event + '\n'
+                log.lines += 1
+
+                if len(buffer) > 32 or (time.time() - buffer_time) > 3:
+                    caches['default'].set_many(buffer, 180)
+                    log.save()
+
+                    buffer = {}
+                    buffer_time = time.time()
+
+            if buffer:
+                caches['default'].set_many(buffer, 180)
+                log.save()
+
+            if log.lines:
+                log.status = 'completed'
+                log.save()
+                logger.info('Completed log watch: {} {}', job, pod)
 
             else:
-                log.lines = 0
-                log.logs = ''
-
-            log.logs += event + '\n'
-            log.lines += 1
-            log.save()
-
-        if log.lines:
-            log.status = 'completed'
-            log.save()
-            logger.info('Completed log watch: {} {}', job, pod)
-
-        else:
-            if log.retries < 15:
-                log.retries += 1
-                log.save()
-                watch_log.schedule((job.id, pod), delay=60)
-                logger.info('Retrying log watch: {} {}', job, pod)
+                if log.retries < 15:
+                    log.retries += 1
+                    log.save()
+                    watch_log.schedule((job.id, pod), delay=60)
+                    logger.info('Retrying log watch: {} {}', job, pod)
 
 
-            else:
-                log.status = 'failed'
-                log.save()
+                else:
+                    log.status = 'failed'
+                    log.save()
 
 
 @db_task(retries=10, retry_delay=60)

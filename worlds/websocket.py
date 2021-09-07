@@ -69,14 +69,22 @@ async def watch_log_data(job, pod, send, log_queue):
             log = await sync_to_async(get_log, thread_sensitive=True)(job, pod)
             if log:
                 if log.lines != lines:
-                    line_array = log.logs.split('\n')[lines:log.lines - 1]
+                    lines_send = ''
+                    line_array = []
+                    for i in range(lines, log.lines - 1):
+                        line_array.append(f'{pod}-{i}')
+
                     if line_array:
+                        line_dict = caches['default'].get_many(line_array)
                         msg_lines = ''
                         for l in line_array:
-                            msg_lines += l + '\n'
+                            m = line_dict.get(l, None)
+                            if m is not None:
+                                msg_lines += m
 
-                        msg = {'type': 'log', 'data': msg_lines}
-                        await send({'type': 'websocket.send', 'text': json.dumps(msg)})
+                        if msg_lines:
+                            msg = {'type': 'log', 'data': msg_lines}
+                            await send({'type': 'websocket.send', 'text': json.dumps(msg)})
 
                     lines = log.lines - 1
 
