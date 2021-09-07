@@ -1,3 +1,4 @@
+import os
 from io import BytesIO
 from zipfile import ZipFile, ZipInfo
 
@@ -7,7 +8,8 @@ from django.template.response import TemplateResponse
 from django.shortcuts import get_object_or_404
 from django.core.paginator import Paginator
 
-from worlds.models import Pipeline, Job
+from worlds.models import Pipeline, Job, CompletedLog
+
 
 @login_required
 def start_job(request):
@@ -49,13 +51,29 @@ def job_details(request, jid):
     }
     return TemplateResponse(request, 'worlds/job_details.html', context)
 
+
 @login_required
 def job_log(request, jid, pod):
-    job = get_object_or_404(Job, id=jid)
-    if job.log_data and pod in job.log_data:
-        return http.HttpResponse(job.log_data[pod], content_type="text/plain")
+    log = get_object_or_404(CompletedLog, job_id=jid, pod=pod)
+    if log.log_file:
+        return http.HttpResponseRedirect(log.log_file.url)
 
     raise http.Http404
+
+
+@login_required
+def all_logs(request, jid, zip):
+    job = get_object_or_404(Job, id=jid)
+
+    new_zip = BytesIO()
+    with ZipFile(new_zip, 'w') as new_archive:
+        for log in CompletedLog.objects.filter(job=job):
+            if log.log_file:
+                contents = log.log_file.open('rb').read()
+                new_archive.writestr(os.path.basename(log.log_file.name), contents)
+
+    return http.HttpResponse(new_zip.getvalue(), content_type="application/zip")
+
 
 @login_required
 def job_zip(self, jid, zip):
@@ -74,6 +92,7 @@ def job_zip(self, jid, zip):
             new_archive.writestr(relpath, contents)
 
     return http.HttpResponse(new_zip.getvalue(), content_type="application/zip")
+
 
 @login_required
 def job_kill(request, jid):

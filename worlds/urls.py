@@ -10,5 +10,6 @@ urlpatterns = [
     path('job/<int:jid>/', job_details),
     path('job/<int:jid>/kill/', job_kill),
     path('job/<int:jid>/<str:pod>.log', job_log),
+    path('job/<int:jid>/<str:zip>.logs.zip', all_logs),
     path('job/<int:jid>/<str:zip>.zip', job_zip),
 ]
