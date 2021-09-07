@@ -65,7 +65,7 @@ def watch_log(jid, pod):
 
         if not log.log_file:
             log.lines = 0
-            log.log_file.save(f'{pod}.log', content=ContentFile(''), save=False)
+            log.log_file.save(f'{pod}.log', content=ContentFile(b''), save=False)
 
         log.save()
 

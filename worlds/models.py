@@ -482,13 +482,12 @@ class Job(models.Model):
         for pod_name in self.get_pods(client):
             log_response = core_v1.read_namespaced_pod_log(
                 name=pod_name, namespace="default", _return_http_data_only=True, _preload_content=False)
-            logtext = log_response.data.decode()
 
             log = CompletedLog.objects.filter(job=self, pod=pod_name).first()
             if not log:
                 log = CompletedLog(job=self, pod=pod_name)
 
-            log.log_file.save(f'{pod_name}.completed.log', content=ContentFile(logtext), save=False)
+            log.log_file.save(f'{pod_name}.completed.log', content=ContentFile(log_response.data), save=False)
             log.save()
 
     def kill(self):
