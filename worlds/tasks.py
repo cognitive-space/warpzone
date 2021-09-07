@@ -63,15 +63,15 @@ def watch_log(jid, pod):
         if not log:
             log = StreamLog(job=job, pod=pod)
 
+        log.lines = 0
         if not log.log_file:
-            log.lines = 0
             log.log_file.save(f'{pod}.log', content=ContentFile(b''), save=False)
 
         log.save()
 
         buffer = {}
         buffer_time = time.time()
-        with log.log_file.open('a') as fh:
+        with log.log_file.open('w') as fh:
             for event in job.watch_pod(pod):
                 fh.write(event + '\n')
                 buffer[f'{pod}-{log.lines}'] = event + '\n'
