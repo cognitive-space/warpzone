@@ -81,7 +81,7 @@ def watch_log(jid, pod):
                     caches['default'].set_many(buffer, 180)
                     log.save()
 
-                    if log.lines > 5:
+                    if log.lines > 500000:
                         log.status = 'completed'
                         log.save()
 
