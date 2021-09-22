@@ -84,6 +84,8 @@ def watch_log(jid, pod):
                     if log.lines > 500000:
                         log.status = 'completed'
                         log.save()
+                        logger.info('Line limit Exiting: {} {}', job, pod)
+                        return
 
                     buffer = {}
                     buffer_time = time.time()
