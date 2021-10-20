@@ -39,6 +39,6 @@ urlpatterns += [
     path('admin/', admin.site.urls),
     path('worlds/', include('worlds.urls')),
     path('favicon.ico', worlds_views.favicon),
-    path('sentry-debug/', trigger_error),
+    # path('sentry-debug/', trigger_error),
     path('', worlds_views.start_job),
 ]
