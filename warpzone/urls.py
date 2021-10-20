@@ -21,6 +21,11 @@ from django.views.static import serve
 
 import worlds.views as worlds_views
 
+
+def trigger_error(request):
+    division_by_zero = 1 / 0
+
+
 urlpatterns = []
 
 if settings.DEBUG :
@@ -34,5 +39,6 @@ urlpatterns += [
     path('admin/', admin.site.urls),
     path('worlds/', include('worlds.urls')),
     path('favicon.ico', worlds_views.favicon),
+    path('sentry-debug/', trigger_error),
     path('', worlds_views.start_job),
 ]
