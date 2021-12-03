@@ -35,6 +35,7 @@ class Pipeline(models.Model):
     pre_command = models.CharField(max_length=512, blank=True, null=True)
     post_command = models.CharField(max_length=512, blank=True, null=True)
     workers = models.PositiveSmallIntegerField()
+    pods_per_node = models.PositiveIntegerField(default=2)
 
     scale_down_delay = models.PositiveSmallIntegerField(default=1200)
     worker_node_selector = models.CharField(max_length=255, blank=True, null=True)
@@ -101,7 +102,6 @@ class Pipeline(models.Model):
             parallelism=self.workers,
             pipeline=self,
             job_type='queue',
-            port=random.randint(10000, 30000),
             envs=job_envs,
         )
         qjob.save()
@@ -134,7 +134,6 @@ class Pipeline(models.Model):
             pipeline=self,
             job_type='job',
             queue=qjob,
-            port=random.randint(40000, 65535),
             envs=job_envs,
         )
         job.save()
@@ -224,7 +223,6 @@ class Job(models.Model):
     job_definition = models.JSONField(blank=True, null=True, encoder=DjangoJSONEncoder)
     job_type = models.CharField(max_length=10, choices=JOB_TYPES)
     queue = models.ForeignKey('self', on_delete=models.CASCADE, blank=True, null=True)
-    port = models.PositiveIntegerField()
 
     pipeline = models.ForeignKey(Pipeline, on_delete=models.CASCADE)
 
@@ -311,10 +309,18 @@ class Job(models.Model):
                 'image': self.image,
                 'command': self.pipeline.full_command(self.command),
                 'env': self.pipeline.env_list(local_envs, self.envs),
-                'ports': [{'hostPort': self.port, 'containerPort': self.port}] # this is hack to get one pod per node
             }],
-            'restartPolicy': 'OnFailure'
+            'restartPolicy': 'OnFailure',
         }
+
+
+        if self.pipeline.pods_per_node:
+            ret['topologySpreadConstraints'] = [{
+                'maxSkew': self.pipeline.pods_per_node,
+                'topologyKey': 'node',
+                'whenUnsatisfiable': 'DoNotSchedule',
+                'labelSelector': {'matchLabels': {'app': f'pipeline-{self.pipeline.id}'}}
+            }]
 
         if self.job_type == 'queue' and self.pipeline.worker_node_selector:
             key, value = self.pipeline.worker_node_selector.split('=')
@@ -340,7 +346,10 @@ class Job(models.Model):
                 'parallelism': self.parallelism,
                 # 'completions': self.parallelism,
                 'ttlSecondsAfterFinished': 60 * 60, # cleanup pod after 1 hour
-                'template': {'spec': self.pod_spec()},
+                'template': {
+                    'metadata': {'labels': {'app': f'pipeline-{self.pipeline.id}'}},
+                    'spec': self.pod_spec()
+                },
                 'backoffLimit': 4
             }
         }
