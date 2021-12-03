@@ -35,7 +35,8 @@ class Pipeline(models.Model):
     pre_command = models.CharField(max_length=512, blank=True, null=True)
     post_command = models.CharField(max_length=512, blank=True, null=True)
     workers = models.PositiveSmallIntegerField()
-    pods_per_node = models.PositiveIntegerField(default=2)
+
+    memory_request = models.CharField(max_length=25, blank=True, null=True)
 
     scale_down_delay = models.PositiveSmallIntegerField(default=1200)
     worker_node_selector = models.CharField(max_length=255, blank=True, null=True)
@@ -314,13 +315,8 @@ class Job(models.Model):
         }
 
 
-        if self.pipeline.pods_per_node:
-            ret['topologySpreadConstraints'] = [{
-                'maxSkew': self.pipeline.pods_per_node,
-                'topologyKey': 'node',
-                'whenUnsatisfiable': 'DoNotSchedule',
-                'labelSelector': {'matchLabels': {'app': f'pipeline-{self.pipeline.id}'}}
-            }]
+        if self.pipeline.memory_request:
+            ret['containers'][0]['resources'] = {'requests': {'memory': "23Gi"}}
 
         if self.job_type == 'queue' and self.pipeline.worker_node_selector:
             key, value = self.pipeline.worker_node_selector.split('=')
@@ -347,7 +343,6 @@ class Job(models.Model):
                 # 'completions': self.parallelism,
                 'ttlSecondsAfterFinished': 60 * 60, # cleanup pod after 1 hour
                 'template': {
-                    'metadata': {'labels': {'app': f'pipeline-{self.pipeline.id}'}},
                     'spec': self.pod_spec()
                 },
                 'backoffLimit': 4
