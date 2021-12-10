@@ -56,6 +56,13 @@ class Cluster(models.Model):
 
         return False
 
+    def needs_scale_up(self):
+        for pool in self.nodepool_set.all():
+            if pool.current_size < pool.scale_up_desired_size:
+                return True
+
+        return False
+
 
 class NodePool(models.Model):
     name = models.CharField(max_length=70)
