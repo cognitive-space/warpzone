@@ -22,9 +22,88 @@ from kubernetes.config.kube_config import _get_kube_config_loader
 
 import worlds.integrations.eks as eks
 
-INTEGRATIONS = {
-    'eks': eks
-}
+
+class Cluster(models.Model):
+    CLUSTER_TYPES = (
+        ('eks', 'AWS EKS'),
+        ('do', 'Digital Ocean'),
+    )
+
+    name = models.CharField(max_length=70)
+    slug = models.SlugField(max_length=70, unique=True)
+    external_id = models.CharField(max_length=255)
+    ctype = models.CharField('Cluster Type', max_length=5, choices=CLUSTER_TYPES)
+    scale_down_delay = models.PositiveSmallIntegerField(default=1200)
+    active = models.BooleanField(default=True)
+
+    config = EncryptedTextField(help_text='kube config file', blank=True, null=True)
+
+    def __str__(self):
+        return self.name
+
+    def scale_up(self):
+        for node_pool in self.nodepool_set.all():
+            node_pool.scale_up()
+
+    def scale_down(self):
+        for node_pool in self.nodepool_set.all():
+            node_pool.scale_down()
+
+    def needs_scale_down(self):
+        for pool in self.nodepool_set.all():
+            if pool.current_size > pool.scale_down_desired_size:
+                return True
+
+        return False
+
+
+class NodePool(models.Model):
+    name = models.CharField(max_length=70)
+    external_id = models.CharField(max_length=255)
+
+    scale_up_desired_size = models.PositiveSmallIntegerField(default=5)
+    scale_up_min_size = models.PositiveSmallIntegerField(default=5)
+    scale_up_max_size = models.PositiveSmallIntegerField(default=5)
+
+    scale_down_desired_size = models.PositiveSmallIntegerField(default=2)
+    scale_down_min_size = models.PositiveSmallIntegerField(default=2)
+    scale_down_max_size = models.PositiveSmallIntegerField(default=2)
+
+    current_size = models.PositiveSmallIntegerField(default=0)
+
+    cluster = models.ForeignKey(Cluster, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def integration(self):
+        if self.cluster.ctype == 'eks':
+            return eks
+
+    def scale_up(self):
+        self.integration.scale(
+            self.cluster.external_id,
+            self.external_id,
+            self.scale_up_desired_size,
+            self.scale_up_min_size,
+            self.scale_up_max_size,
+        )
+
+        self.current_size = self.scale_up_desired_size
+        self.save()
+
+    def scale_down(self):
+        self.integration.scale(
+            self.cluster.external_id,
+            self.external_id,
+            self.scale_down_desired_size,
+            self.scale_down_min_size,
+            self.scale_down_max_size,
+        )
+
+        self.current_size = self.scale_down_desired_size
+        self.save()
 
 
 class Pipeline(models.Model):
@@ -48,6 +127,8 @@ class Pipeline(models.Model):
     force_scaling = models.JSONField(blank=True, null=True)
 
     s3_storage_url = models.CharField(max_length=255, blank=True, null=True)
+
+    cluster = models.ForeignKey(Cluster, on_delete=models.CASCADE, blank=True, null=True)
 
     def __str__(self):
         return self.name
@@ -158,17 +239,6 @@ class Pipeline(models.Model):
                 ret.append({'name': name, 'value': value})
 
         return ret
-
-    def scale_up(self):
-        if self.force_scaling:
-            for key, mod in INTEGRATIONS.items():
-                if key in self.force_scaling:
-                    return mod.scale_up(self, self.force_scaling[key])
-
-    def scale_down(self):
-        if self.force_scaling and self.scale_down_delay:
-            from worlds.tasks import scale_down
-            scale_down.schedule((self.id,), delay=self.scale_down_delay)
 
     def s3_storage_args(self):
         ret = {}
@@ -416,9 +486,6 @@ class Job(models.Model):
                 if exc.status == 404:
                     self.status = 'killed'
                     self.save()
-                    if self.job_type == 'queue':
-                        self.pipeline.scale_down()
-
                     break
 
                 else:
@@ -434,9 +501,6 @@ class Job(models.Model):
                     pass
 
                 self.fix_logs()
-                if self.job_type == 'queue':
-                    self.pipeline.scale_down()
-
                 break
 
             if not wait:

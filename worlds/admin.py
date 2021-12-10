@@ -6,7 +6,21 @@ from django.utils.html import mark_safe
 
 from django_json_widget.widgets import JSONEditorWidget
 
-from worlds.models import Pipeline, Job, StreamLog, CompletedLog
+from worlds.models import Pipeline, Job, StreamLog, CompletedLog, Cluster, NodePool
+
+
+class PoolInline(admin.StackedInline):
+    model = NodePool
+    extra = 0
+
+
+@admin.register(Cluster)
+class ClusterAdmin(admin.ModelAdmin):
+    list_display = ('name', 'slug')
+    search_fields = ('name', 'slug')
+    save_as = True
+
+    inlines = [PoolInline]
 
 
 @admin.register(Pipeline)
@@ -14,6 +28,8 @@ class PipelineAdmin(admin.ModelAdmin):
     list_display = ('name', 'slug', 'workers')
     search_fields = ('name', 'slug', 'worker_command')
     save_as = True
+
+    raw_id_fields = ('cluster',)
 
     formfield_overrides = {
         JSONField: {'widget': JSONEditorWidget()},

@@ -12,7 +12,7 @@ from huey import crontab
 from loguru import logger
 from kubernetes.client.exceptions import ApiException
 
-from worlds.models import INTEGRATIONS, Job, Pipeline, StreamLog
+from worlds.models import Job, Pipeline, StreamLog, Cluster, NodePool
 
 
 @db_task()
@@ -112,24 +112,27 @@ def watch_log(jid, pod):
                     log.save()
 
 
-@db_task(retries=10, retry_delay=60)
-def scale_down(pipeline):
-    pipeline = Pipeline.objects.filter(id=pipeline).first()
-    if pipeline:
-        qjob = Job.objects.filter(
-            status__in=Job.STATUS_RUNNING,
-            pipeline=pipeline,
-            job_type='queue'
-        ).first()
+@db_periodic_task(crontab(minute="*/1"))
+def scale_check():
+    for cluster in Cluster.objects.filter(active=True):
+        scale_down(cluster.id)
 
-        if qjob:
-            logger.info('Queue Still Running: Pipeline: {}; Job: {}', pipeline.id, qjob.id)
-            scale_down.schedule((pipeline.id,), delay=600)
-            return
 
-        for key, mod in INTEGRATIONS.items():
-            if key in pipeline.force_scaling:
-                return mod.scale_down(pipeline, pipeline.force_scaling[key])
+@db_task(retries=5, retry_delay=30)
+def scale_down(cluster, waited=False):
+    cluster = Cluster.objects.filter(id=cluster).first()
+    if cluster:
+        if cluster.needs_scale_down():
+            job_count = 0
+            for pipeline in cluster.pipeline_set.all():
+                job_count += Job.objects.filter(pipeline=pipeline, status__in=Job.STATUS_RUNNING).count()
+
+            if job_count == 0:
+                if waited:
+                    cluster.scale_down()
+
+                else:
+                    scale_down.schedule((cluster.id, True), delay=cluster.scale_down_delay)
 
 
 @db_periodic_task(crontab(hour='*/4', minute="0"))
