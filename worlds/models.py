@@ -187,7 +187,6 @@ class Pipeline(models.Model):
             envs=job_envs,
         )
         qjob.save()
-        self.scale_up()
         qjob.run()
         return qjob
 
