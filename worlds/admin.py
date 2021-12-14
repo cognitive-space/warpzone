@@ -38,15 +38,14 @@ class PipelineAdmin(admin.ModelAdmin):
 
 @admin.register(Job)
 class JobAdmin(admin.ModelAdmin):
-    list_display = ('name', '_image', 'parallelism', 'succeeded', 'failed', 'job_type', 'status', 'created', '_actions')
-    list_filter = ('status', 'job_type', 'modified', 'created')
+    list_display = ('name', '_image', 'parallelism', 'succeeded', 'failed', 'status', 'created', '_actions')
+    list_filter = ('status', 'modified', 'created')
     search_fields = ('command', 'image', 'job_name')
     formfield_overrides = {
         JSONField: {'widget': JSONEditorWidget(options={'mode': 'view'})},
     }
 
     readonly_fields = ('succeeded', 'failed', 'status')
-    raw_id_fields = ('queue',)
 
     def _actions(self, obj):
         if obj:

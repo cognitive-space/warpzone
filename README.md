@@ -18,7 +18,7 @@ sudo apt-get install -y kubectl
 ## Configure kubectl for Private Repo:
 
 ```
- kubectl create secret docker-registry regcred --docker-server=https://gitlab.cog.space:5050 --docker-username=gitlab-ci-token --docker-password=<token> --docker-email=<email>
+kubectl create secret docker-registry regcred --docker-server=https://gitlab.cog.space:5050 --docker-username=gitlab-ci-token --docker-password=<token> --docker-email=<email>
 ```
 
 ```json

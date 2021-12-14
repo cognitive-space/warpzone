@@ -129,6 +129,7 @@ def scale_down(cluster, waited=False):
 
             if job_count == 0:
                 if waited:
+                    logger.info('Scaling Down: {}', cluster)
                     cluster.scale_down()
 
                 else:

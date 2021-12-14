@@ -126,9 +126,8 @@ class Pipeline(models.Model):
 
     scale_down_delay = models.PositiveSmallIntegerField(default=1200)
     worker_node_selector = models.CharField(max_length=255, blank=True, null=True)
-    master_node_selector = models.CharField(max_length=255, blank=True, null=True)
 
-    config = EncryptedTextField(help_text='kube config file', blank=True, null=True)
+    config_old = EncryptedTextField(help_text='kube config file', blank=True, null=True)
     envs = EncryptedTextField(help_text='use .env format', blank=True, null=True)
 
     force_scaling = models.JSONField(blank=True, null=True)
@@ -146,6 +145,10 @@ class Pipeline(models.Model):
             'id': self.id,
             'slug': self.slug,
         }
+
+    @property
+    def config(self):
+        return self.cluster.config
 
     def kube_client(self):
         client_config = type.__call__(Configuration)
@@ -167,7 +170,6 @@ class Pipeline(models.Model):
             self._running = Job.objects.filter(
                 status__in=Job.STATUS_RUNNING,
                 pipeline=self,
-                job_type='queue'
             ).first()
 
         return self._running
@@ -185,24 +187,10 @@ class Pipeline(models.Model):
         return ret
 
     def start_pipeline(self, image, job_envs=None):
-        qjob = Job(
-            command=self.worker_command.split(' '),
-            image=image,
-            parallelism=self.workers,
-            pipeline=self,
-            job_type='queue',
-            envs=job_envs,
-        )
-        qjob.save()
-        qjob.run()
-        return qjob
-
-    def run_job(self, image, job_command, job_envs=None, wait=False):
         qjob = Job.objects.filter(
             image=image,
             status__in=Job.STATUS_RUNNING,
             pipeline=self,
-            job_type='queue'
         ).first()
 
         if qjob:
@@ -211,22 +199,18 @@ class Pipeline(models.Model):
                 qjob = None
 
         if qjob is None:
-            qjob = self.start_pipeline(image, job_envs)
+            qjob = Job(
+                command=self.worker_command.split(' '),
+                image=image,
+                parallelism=self.workers,
+                pipeline=self,
+                envs=job_envs,
+            )
+            qjob.save()
+            qjob.run()
 
-        time.sleep(0.1)
+        return qjob
 
-        job = Job(
-            command=job_command.split(' '),
-            image=image,
-            parallelism=1,
-            pipeline=self,
-            job_type='job',
-            queue=qjob,
-            envs=job_envs,
-        )
-        job.save()
-        job.run()
-        return qjob, job
 
     def env_list(self, local_envs_dict=None, job_envs=None):
         ret = []
@@ -280,13 +264,8 @@ class Job(models.Model):
         ('completed', 'Completed'),
     )
 
-    STATUS_RUNNING = ['active', 'created', 'submitted']
+    STATUS_RUNNING = ['active', 'created', 'submitted', 'downloading']
     STATUS_DONE = ['completed', 'killed', 'failed']
-
-    JOB_TYPES = (
-        ('queue', 'Queue'),
-        ('job', 'Job'),
-    )
 
     command = ArrayField(models.CharField(max_length=255))
     image = models.CharField(max_length=255)
@@ -298,8 +277,6 @@ class Job(models.Model):
 
     job_name = models.CharField(max_length=255, blank=True, null=True)
     job_definition = models.JSONField(blank=True, null=True, encoder=DjangoJSONEncoder)
-    job_type = models.CharField(max_length=10, choices=JOB_TYPES)
-    queue = models.ForeignKey('self', on_delete=models.CASCADE, blank=True, null=True)
 
     pipeline = models.ForeignKey(Pipeline, on_delete=models.CASCADE)
 
@@ -326,17 +303,13 @@ class Job(models.Model):
 
     @property
     def downloadable(self):
-        if self.job_type == 'job' and self.status in self.STATUS_DONE:
+        if self.status in self.STATUS_DONE:
             if self.pipeline.get_job_storage():
                 return True
 
         return False
 
     def to_json(self):
-        q = None
-        if self.queue:
-            q = self.queue.id
-
         return {
             'job_name': self.job_name,
             'id': self.id,
@@ -346,8 +319,6 @@ class Job(models.Model):
             'log_data': self.complete_logs,
             'modified': self.modified.isoformat(),
             'created': self.created.isoformat(),
-            'job_type': self.job_type,
-            'queue': q,
             'downloadable': self.downloadable,
             'envs': self.envs,
         }
@@ -373,11 +344,6 @@ class Job(models.Model):
     def pod_spec(self):
         job_path = self.job_name
         local_envs = {}
-        if self.job_type == 'job':
-            local_envs = {
-                'JOB_NAME': self.job_name,
-                'JOB_PATH': job_path
-            }
 
         ret = {
             'imagePullSecrets': [{'name': 'regcred'}], # todo: abstract for user input
@@ -394,12 +360,8 @@ class Job(models.Model):
         if self.pipeline.memory_request:
             ret['containers'][0]['resources'] = {'requests': {'memory': "23Gi"}}
 
-        if self.job_type == 'queue' and self.pipeline.worker_node_selector:
+        if self.pipeline.worker_node_selector:
             key, value = self.pipeline.worker_node_selector.split('=')
-            ret['nodeSelector'] = {key: value}
-
-        elif self.job_type == 'job' and self.pipeline.master_node_selector:
-            key, value = self.pipeline.master_node_selector.split('=')
             ret['nodeSelector'] = {key: value}
 
         return ret
@@ -408,7 +370,10 @@ class Job(models.Model):
         client = self.pipeline.kube_client()
         batch_v1 = kube_apis.BatchV1Api(client)
 
-        self.job_name = '{}-{}-{}'.format(self.job_type, self.command[0], int(time.time() * 1000))
+        job_name = self.command[0]
+        job_name = job_name.split("/")[-1]
+        job_name = job_name.replace(".", "-")
+        self.job_name = '{}-{}'.format(job_name, int(time.time() * 1000))
 
         job = {
             'apiVersion': 'batch/v1',
