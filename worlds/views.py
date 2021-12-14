@@ -12,26 +12,6 @@ from worlds.models import Pipeline, Job, CompletedLog
 
 
 @login_required
-def start_job(request):
-    if request.method == 'POST':
-        image = request.POST['image']
-        command = request.POST['command']
-        envs = request.POST.get('envs')
-        pipeline = get_object_or_404(Pipeline, id=request.POST['pipeline'])
-        qjob, job = pipeline.run_job(image, command, envs)
-        return http.HttpResponseRedirect(f'/worlds/job/{job.id}/')
-
-    pipelines = []
-    for p in Pipeline.objects.all().order_by('name'):
-        pipelines.append({'text': p.name, 'value': p.id})
-
-    context = {
-        'pipelines': pipelines
-    }
-    return TemplateResponse(request, 'worlds/start_job.html', context)
-
-
-@login_required
 def job_list(request):
     jobs = Job.objects.all().select_related('pipeline').defer('job_definition')
     paginator = Paginator(jobs, 50)
@@ -42,6 +22,7 @@ def job_list(request):
         'page_obj': page_obj
     }
     return TemplateResponse(request, 'worlds/job_list.html', context)
+
 
 @login_required
 def job_details(request, jid):
@@ -120,6 +101,19 @@ def start_pipeline(request):
         image = request.POST['image']
         envs = request.POST.get('envs')
         pipeline = get_object_or_404(Pipeline, id=request.POST['pipeline'])
+
+        context = {
+            'pipeline': pipeline.id,
+            'image': image,
+            'envs': envs,
+        }
+        if pipeline.cluster.needs_scale_up():
+            pipeline.cluster.scale_up()
+            return TemplateResponse(request, 'worlds/warmup_cluster.html', context)
+
+        if not pipeline.cluster.warmed_up():
+            return TemplateResponse(request, 'worlds/warmup_cluster.html', context)
+
         qjob = pipeline.start_pipeline(image, envs)
         return http.HttpResponseRedirect(f'/worlds/job/{qjob.id}/')
 

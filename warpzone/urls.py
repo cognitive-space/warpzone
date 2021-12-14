@@ -40,5 +40,5 @@ urlpatterns += [
     path('worlds/', include('worlds.urls')),
     path('favicon.ico', worlds_views.favicon),
     # path('sentry-debug/', trigger_error),
-    path('', worlds_views.start_job),
+    path('', worlds_views.start_pipeline),
 ]

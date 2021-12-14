@@ -2,6 +2,7 @@ import io
 import time
 import random
 
+from django.core.cache import caches
 from django.db import models
 from django.core.files.base import ContentFile
 from django.core.serializers.json import DjangoJSONEncoder
@@ -45,7 +46,13 @@ class Cluster(models.Model):
         for node_pool in self.nodepool_set.all():
             node_pool.scale_up()
 
+        caches['default'].set(f'cluster-scale-up-{self.id}', True, 60 * 15)
+
     def scale_down(self):
+        scaling_up = caches['default'].get(f'cluster-scale-up-{self.id}')
+        if scaling_up:
+            return None
+
         for node_pool in self.nodepool_set.all():
             node_pool.scale_down()
 
@@ -62,6 +69,24 @@ class Cluster(models.Model):
                 return True
 
         return False
+
+    def warmed_up(self):
+        core_v1 = kube_apis.CoreV1Api(self.kube_client())
+        running = len(core_v1.list_node().items)
+        needed = 0
+        for pool in self.nodepool_set.all():
+            needed += pool.scale_up_desired_size
+
+        if running >= needed:
+            return True
+
+        return False
+
+    def kube_client(self):
+        client_config = type.__call__(Configuration)
+        loader = _get_kube_config_loader(config_dict=yaml.load(self.config, Loader=yaml.SafeLoader))
+        loader.load_and_set(client_config)
+        return ApiClient(configuration=client_config)
 
 
 class NodePool(models.Model):
@@ -146,16 +171,8 @@ class Pipeline(models.Model):
             'slug': self.slug,
         }
 
-    @property
-    def config(self):
-        return self.cluster.config
-
     def kube_client(self):
-        client_config = type.__call__(Configuration)
-        loader = _get_kube_config_loader(config_dict=yaml.load(self.config, Loader=yaml.SafeLoader))
-
-        loader.load_and_set(client_config)
-        return ApiClient(configuration=client_config)
+        return self.cluster.kube_client()
 
     def list_pods(self, client=None):
         if client is None:

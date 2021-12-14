@@ -18,9 +18,6 @@
               <th class="text-left">
                 Details
               </th>
-              <th class="text-left">
-                Type
-              </th>
               <th>
                 Success/Failed
               </th>
@@ -44,14 +41,11 @@
                 <br>
                 <strong>Command:</strong> {{ j.cmd }}
               </td>
-              <td>{{ j.get_job_type_display }}</td>
               <td class="text-center">{{ j.succeeded }}/{{ j.failed }}</td>
               <td>{{ j.get_status_display }}</td>
               <td>{{ j.created|naturaltime }}</td>
               <td>
-                {% if j.job_type == 'job' %}
-                <v-btn icon small href="/?image={{ j.image|urlencode }}&command={{ j.cmd|urlencode }}&pipeline={{ j.pipeline.id }}&envs={{ j.envs|default_if_none:''|urlencode }}"><v-icon class="mdi mdi-content-copy"></v-icon></v-btn>
-                {% elif not j.pipeline.running %}
+                {% if not j.pipeline.running %}
                 <v-btn icon small href="/worlds/pipeline/start/?image={{ j.image|urlencode }}&pipeline={{ j.pipeline.id }}&envs={{ j.envs|default_if_none:''|urlencode }}"><v-icon class="mdi mdi-pipe"></v-icon></v-btn>
                 {% endif %}
               </td>
