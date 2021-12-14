@@ -112,6 +112,12 @@ def start_pipeline(request):
             return TemplateResponse(request, 'worlds/warmup_cluster.html', context)
 
         if not pipeline.cluster.warmed_up():
+            context['warmup'] = True
+            return TemplateResponse(request, 'worlds/warmup_cluster.html', context)
+
+        warmup_hold = request.POST.get('warmup')
+        if warmup_hold:
+            context['wait'] = True
             return TemplateResponse(request, 'worlds/warmup_cluster.html', context)
 
         qjob = pipeline.start_pipeline(image, envs)
