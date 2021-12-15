@@ -112,7 +112,7 @@ def watch_log(jid, pod):
                     log.save()
 
 
-@db_periodic_task(crontab(minute="*/1"))
+@db_periodic_task(crontab(minute="*/15"))
 def scale_check():
     for cluster in Cluster.objects.filter(active=True):
         scale_down(cluster.id)
