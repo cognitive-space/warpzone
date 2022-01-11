@@ -178,3 +178,6 @@ CACHES = {
 }
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+SHELIX_URL = os.environ.get('SHELIX_URL', None)
+SHELIX_TOKEN = os.environ.get('SHELIX_TOKEN', None)
