@@ -47,6 +47,8 @@ build-backend = "pdm.pep517.api"
 _.env_file = ".env"
 manage = "python manage.py"
 req = "pdm export -o requirements.txt --without-hashes --prod"
+guni = "gunicorn warpzone.asgi:application -k uvicorn.workers.UvicornWorker"
+dev = "gunicorn warpzone.asgi:application -k uvicorn.workers.UvicornWorker --reload"
 
 [tool.pdm.dev-dependencies]
 dev = [

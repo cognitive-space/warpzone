@@ -2,11 +2,12 @@ import io
 import time
 import random
 
+from django.conf import settings
 from django.core.cache import caches
-from django.db import models
 from django.core.files.base import ContentFile
 from django.core.serializers.json import DjangoJSONEncoder
 from django.contrib.postgres.fields import ArrayField
+from django.db import models
 from django.utils import timezone
 
 import yaml
@@ -21,6 +22,7 @@ from kubernetes.client import ApiClient, Configuration
 from kubernetes.client.exceptions import ApiException
 from kubernetes.config.kube_config import _get_kube_config_loader
 
+from warpzone.shelix_api import StarHelixApi
 import worlds.integrations.eks as eks
 
 
@@ -294,6 +296,7 @@ class Job(models.Model):
 
     job_name = models.CharField(max_length=255, blank=True, null=True)
     job_definition = models.JSONField(blank=True, null=True, encoder=DjangoJSONEncoder)
+    shelix_log_id = models.CharField(max_length=255, blank=True, null=True)
 
     pipeline = models.ForeignKey(Pipeline, on_delete=models.CASCADE)
 
@@ -361,6 +364,13 @@ class Job(models.Model):
     def pod_spec(self):
         job_path = self.job_name
         local_envs = {}
+
+        if settings.SHELIX_ENABLED:
+            data = StarHelixApi.start_log(self.job_name)
+            self.shelix_log_id = str(data['log_id'])
+            self.save()
+            local_envs['SHELIX_LOGID'] = self.shelix_log_id
+            local_envs['SHELIX_TOKEN'] = settings.SHELIX_TOKEN
 
         ret = {
             'imagePullSecrets': [{'name': 'regcred'}], # todo: abstract for user input
@@ -474,6 +484,7 @@ class Job(models.Model):
                 if exc.status == 404:
                     self.status = 'killed'
                     self.save()
+                    self.end_logs()
                     break
 
                 else:
@@ -483,6 +494,7 @@ class Job(models.Model):
 
             if self.status in self.STATUS_DONE:
                 try:
+                    self.end_logs()
                     self.save_logs(client)
 
                 except:
@@ -496,7 +508,15 @@ class Job(models.Model):
 
             time.sleep(3)
 
+    def end_logs(self):
+        if self.shelix_log_id:
+            print("NARF")
+            StarHelixApi.end_log(self.shelix_log_id)
+
     def fix_logs(self):
+        if self.shelix_log_id:
+            return
+
         for p in self.pods:
             log = CompletedLog.objects.filter(job=self, pod=p).first()
             if log and log.log_file:
@@ -534,17 +554,21 @@ class Job(models.Model):
         return ret
 
     def save_logs(self, client):
-        core_v1 = kube_apis.CoreV1Api(client)
-        for pod_name in self.get_pods(client):
-            log_response = core_v1.read_namespaced_pod_log(
-                name=pod_name, namespace="default", _return_http_data_only=True, _preload_content=False)
+        if self.shelix_log_id:
+            return
 
-            log = CompletedLog.objects.filter(job=self, pod=pod_name).first()
-            if not log:
-                log = CompletedLog(job=self, pod=pod_name)
+        else:
+            core_v1 = kube_apis.CoreV1Api(client)
+            for pod_name in self.get_pods(client):
+                log_response = core_v1.read_namespaced_pod_log(
+                    name=pod_name, namespace="default", _return_http_data_only=True, _preload_content=False)
 
-            log.log_file.save(f'{pod_name}.completed.log', content=ContentFile(log_response.data), save=False)
-            log.save()
+                log = CompletedLog.objects.filter(job=self, pod=pod_name).first()
+                if not log:
+                    log = CompletedLog(job=self, pod=pod_name)
+
+                log.log_file.save(f'{pod_name}.completed.log', content=ContentFile(log_response.data), save=False)
+                log.save()
 
     def kill(self):
         client = self.pipeline.kube_client()
