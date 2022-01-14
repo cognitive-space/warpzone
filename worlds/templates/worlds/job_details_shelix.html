@@ -11,7 +11,7 @@
     <v-container style="max-width: 100%;">
       <div style="display: flex; align-items: flex-start;">
         <div style="flex: 1;">
-          <v-select :items="logs" label="View Logs" outlined v-model="pod" dense></v-select>
+          <v-select :items="workers" label="View Worker" outlined v-model="worker" dense></v-select>
         </div>
         <div style="padding-left: 20px;" v-if="!completed">
           <v-btn color="error" href="./kill/" small>Kill</v-btn>
@@ -23,9 +23,9 @@
             <v-btn-toggle dense v-model="toggle">
               <v-btn @click="scroll_top" title="jump to top"><v-icon class="mdi mdi-arrow-collapse-up"></v-icon></v-btn>
               <v-btn @click="scroll_bottom" title="jump to bottom"><v-icon class="mdi mdi-arrow-collapse-down"></v-icon></v-btn>
-              <v-btn v-if="completed && pod" :href="`./${pod}.log`" download title="Download log">
+              <!-- <v-btn v-if="completed && pod" :href="`./${pod}.log`" download title="Download log">
                 <v-icon class="mdi mdi-file-document-outline"></v-icon>
-              </v-btn>
+              </v-btn> -->
               <v-btn v-if="completed" :href="`./${job.job_name}.logs.zip`" download title="Download all logs">
                 <v-icon class="mdi mdi-file-document-multiple-outline"></v-icon>
               </v-btn>
@@ -56,47 +56,35 @@
       return {
         job: {{ job.to_json|json_data }},
         editor: null,
-        pod: null,
         toggle: null,
-        autoscroll: true
+        autoscroll: true,
+        after: '',
+        workers: ['All'],
+        worker: 'All',
+        full_content: ''
       };
     },
     computed: {
-      logs() {
-        var ret = [];
-        if (this.job && this.job.pods) {
-          this.job.pods.forEach((p) => {
-            ret.push({text: p.replace(`${this.job.job_name}-`, ''), value: p});
-          });
-        }
-        return ret;
-      },
       completed() {
         var completed = ['Completed', 'Killed', 'Failed'];
         return completed.indexOf(this.job.status) > -1;
       },
-      job_type() {
-        if (this.job && this.job.job_type) {
-          if (this.job.job_type == 'queue') {
-            return 'Queue Workers';
-          } else {
-            return 'Master Job';
-          }
+      filtered_content() {
+        if (this.worker == 'All') {
+          return this.full_content;
         }
 
-        return '---';
+        var content = '';
+        this.full_content.split("\n").forEach((l) => {
+          if (l.startsWith(this.worker)) {
+            content += l + "\n";
+          }
+        });
+        return content;
       }
     },
     mounted() {
-      if (this.logs.length >= 1) {
-        this.pod = this.logs[0].value;
-      }
-
-      if (!this.completed) {
-        if (!this.pod) {
-          this.connect();
-        }
-      }
+      this.fetch_log();
     },
     watch: {
       toggle() {
@@ -104,11 +92,14 @@
           this.toggle = null;
         }, 500);
       },
-      pod(to, from) {
-        if (to && to != from) {
-          this.$nextTick(() => {
-            this.switch_pod(to);
-          });
+      worker() {
+        if (this.editor) {
+          var session = this.editor.getSession();
+          session.setValue(this.filtered_content);
+
+          if (this.autoscroll) {
+            this.scroll_bottom();
+          }
         }
       }
     },
@@ -120,7 +111,7 @@
         var lines = this.editor.session.doc.getAllLines();
         this.editor.renderer.scrollToLine(lines.length - 1);
       },
-      switch_pod(to) {
+      fetch_log() {
         if (!this.editor) {
           this.editor = ace.edit("editor");
           this.editor.setTheme("ace/theme/gob");
@@ -128,56 +119,48 @@
           this.editor.setReadOnly(true);
         }
 
-        var session = this.editor.getSession();
-        if (this.completed) {
-          axios.get(this.job.log_data[to])
-            .then((result) => {
-              session.setValue(result.data);
-              if (this.autoscroll) {
-                this.scroll_bottom();
-              }
-            })
-            .catch(() => {
-              alert("Error fetching log.");
-            });
-        } else {
-          session.setValue('');
-          this.connect(to);
-        }
-      },
-      connect(pod) {
-        if (this.ws) {
-          this.ws.close();
-        }
+        var params = {
+          ts: Date.now(),
+          after: this.after
+        };
+        axios.get('./shelix-logs/', {params})
+          .then((resp) => {
+            if (resp.data.lastchunk) {
+              this.after = resp.data.lastchunk;
+            }
 
-        var url = `${location.protocol}//${location.host}?job=${this.job.id}`;
-        url = url.replace('http', 'ws');
-        if (pod) {
-          url += `&pod=${pod}`;
-        }
+            this.job = resp.data.job;
 
-        this.ws = new WebSocket(url);
-        this.ws.addEventListener('message', (event) => {
-          var msg = JSON.parse(event.data);
-          if (msg.type == 'job') {
-            this.job = msg.data;
-            this.$nextTick(() => {
-              if (this.completed && this.pod) {
-                this.switch_pod(this.pod);
+            if (!resp.data.text) {
+              return;
+            }
+
+            this.full_content += resp.data.text;
+
+            var matches = resp.data.text.match(/^\S+\[\S+\]/gm);
+            matches.forEach((m) => {
+              if (this.workers.indexOf(m) == -1) {
+                this.workers.push(m);
               }
             });
-          } else if (msg.type == 'log') {
+
             var session = this.editor.getSession();
-            var value = session.getValue();
-            session.setValue(value + msg.data);
+            session.setValue(this.filtered_content);
 
             if (this.autoscroll) {
               this.scroll_bottom();
             }
-          } else {
-            console.log(msg);
-          }
-        });
+          })
+          .catch((e) => {
+            console.error(e);
+          })
+          .finally(() => {
+            setTimeout(() => {
+              if (!this.completed) {
+                this.fetch_log();
+              }
+            }, 3000);
+          });
       }
     }
   };

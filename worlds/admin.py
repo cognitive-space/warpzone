@@ -66,7 +66,7 @@ class JobAdmin(admin.ModelAdmin):
 
 @admin.register(CompletedLog)
 class CompletedLogAdmin(admin.ModelAdmin):
-    list_display= ('pod', 'job', 'created')
+    list_display= ('name', 'job', 'created')
     search_fields = ('pod', 'job__job_name')
     date_hierarchy = 'created'
     raw_id_fields = ('job',)

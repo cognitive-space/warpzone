@@ -355,7 +355,11 @@ class Job(models.Model):
         if self.status in self.STATUS_DONE:
             logs = {}
             for log in CompletedLog.objects.filter(job=self):
-                logs[log.pod] = log.log_file.url
+                if log.pod is None:
+                    logs['all'] = log.log_file.url
+
+                else:
+                    logs[log.pod] = log.log_file.url
 
             return logs
 
@@ -371,6 +375,9 @@ class Job(models.Model):
             self.save()
             local_envs['SHELIX_LOGID'] = self.shelix_log_id
             local_envs['SHELIX_TOKEN'] = settings.SHELIX_TOKEN
+            local_envs['SHELIX_PREFIX'] = 'worker'
+            local_envs['SHELIX_TS_PREFIX'] = '1'
+            local_envs['PYTHONUNBUFFERED'] = '1'
 
         ret = {
             'imagePullSecrets': [{'name': 'regcred'}], # todo: abstract for user input
@@ -508,10 +515,16 @@ class Job(models.Model):
 
             time.sleep(3)
 
+    def log(self, text):
+        if self.shelix_log_id:
+            StarHelixApi.save_log(self.shelix_log_id, text)
+
     def end_logs(self):
         if self.shelix_log_id:
-            print("NARF")
             StarHelixApi.end_log(self.shelix_log_id)
+
+            from worlds.tasks import end_shelix_log
+            end_shelix_log(self.id)
 
     def fix_logs(self):
         if self.shelix_log_id:
@@ -593,7 +606,7 @@ class Job(models.Model):
 
 class CompletedLog(models.Model):
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
-    pod = models.CharField(max_length=255)
+    pod = models.CharField(max_length=255, blank=True, null=True)
     log_file = models.FileField(upload_to='warpzone/%Y/%m/%d/', blank=True, null=True)
     created = models.DateTimeField(auto_now_add=True)
 
@@ -602,6 +615,13 @@ class CompletedLog(models.Model):
         unique_together = [['job', 'pod']]
 
     def __str__(self):
+        return self.name
+
+    @property
+    def name(self):
+        if self.pod is None:
+            return self.job.name
+
         return self.pod
 
 

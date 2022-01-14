@@ -64,7 +64,7 @@ async def watch_log_data(job, pod, send, log_queue):
     while 1:
         try:
             await asyncio.sleep(wait)
-            wait = 5.0
+            wait = 3.0
 
             log = await sync_to_async(get_log, thread_sensitive=True)(job, pod)
             if log:

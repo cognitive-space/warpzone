@@ -12,7 +12,8 @@ from huey import crontab
 from loguru import logger
 from kubernetes.client.exceptions import ApiException
 
-from worlds.models import Job, Pipeline, StreamLog, Cluster, NodePool
+from warpzone.shelix_api import StarHelixApi
+from worlds.models import Job, Pipeline, StreamLog, Cluster, NodePool, CompletedLog
 
 
 @db_task()
@@ -30,9 +31,10 @@ def update_job_status(jid):
                 if 'ContainerCreating' in json.loads(exc.body.decode())['message']:
                     job.status = 'downloading'
                     job.save()
-                    return
+                    job.log('warpzone[server]: Waiting for container creation\n')
 
-            raise
+                else:
+                    raise
 
 
 @db_periodic_task(crontab(minute='*'))
@@ -110,6 +112,33 @@ def watch_log(jid, pod):
                 else:
                     log.status = 'failed'
                     log.save()
+
+
+@db_task(retries=3, retry_delay=10)
+def end_shelix_log(job_id):
+    job = Job.objects.filter(id=job_id).first()
+    content = ''
+    after = None
+
+    if job:
+        while 1:
+            text, lastchunk, endlog = StarHelixApi.read_log(job.shelix_log_id, after)
+            if not endlog:
+                end_shelix_log.schedule(delay=10, args=(job_id,))
+                return
+
+            if not text:
+                break
+
+            content += text
+            if lastchunk:
+                after = lastchunk
+
+            time.sleep(0.1)
+
+        log = CompletedLog(job=job)
+        log.log_file.save(f'{job.job_name}.completed.log', content=ContentFile(content), save=False)
+        log.save()
 
 
 @db_periodic_task(crontab(minute="*/15"))

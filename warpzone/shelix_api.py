@@ -16,7 +16,6 @@ class StarHelixApi:
     def end_log(cls, log_id):
         self = cls()
         resp = self.post('/stash/v1/end-log/', log_id=log_id)
-        print('RESP', resp)
         return resp.json()
 
     @classmethod
@@ -24,6 +23,12 @@ class StarHelixApi:
         self = cls()
         resp = self.post('/stash/v1/save-log/', log_id=log_id, logs=text)
         return resp.json()
+
+    @classmethod
+    def read_log(cls, log_id, after=None):
+        self = cls()
+        resp = self.post('/stash/v1/read-log/', log_id=log_id, after=after)
+        return resp.text, resp.headers['Lastchunk'], resp.headers['Endlog']
 
     def post(self, url, **kwargs):
         kwargs['token'] = settings.SHELIX_TOKEN

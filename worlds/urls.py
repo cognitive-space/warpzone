@@ -7,6 +7,7 @@ urlpatterns = [
     path('pipelines/', pipeline_list),
     path('jobs/', job_list),
     path('job/<int:jid>/', job_details),
+    path('job/<int:jid>/shelix-logs/', job_shelix_log),
     path('job/<int:jid>/kill/', job_kill),
     path('job/<int:jid>/<str:pod>.log', job_log),
     path('job/<int:jid>/<str:zip>.logs.zip', all_logs),

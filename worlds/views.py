@@ -8,6 +8,7 @@ from django.template.response import TemplateResponse
 from django.shortcuts import get_object_or_404
 from django.core.paginator import Paginator
 
+from warpzone.shelix_api import StarHelixApi
 from worlds.models import Pipeline, Job, CompletedLog
 
 
@@ -30,7 +31,25 @@ def job_details(request, jid):
     context = {
         'job': job
     }
+
+    if job.shelix_log_id:
+        return TemplateResponse(request, 'worlds/job_details_shelix.html', context)
+
     return TemplateResponse(request, 'worlds/job_details.html', context)
+
+
+@login_required
+def job_shelix_log(request, jid):
+    job = get_object_or_404(Job, id=jid)
+
+    after = request.GET.get('after', '')
+    text, lastchunk, endlog = StarHelixApi.read_log(job.shelix_log_id, after)
+    return http.JsonResponse({
+        'text': text,
+        'lastchunk': lastchunk,
+        'job': job.to_json(),
+        'endlog': endlog,
+    })
 
 
 @login_required
