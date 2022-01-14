@@ -61,7 +61,8 @@
         after: '',
         workers: ['All'],
         worker: 'All',
-        full_content: ''
+        full_content: '',
+        completed_log: false
       };
     },
     computed: {
@@ -145,7 +146,9 @@
         axios.get('./shelix-logs/', {params})
           .then((resp) => {
             if (resp.data.url) {
-              return this.download_full(resp.data.url);
+              this.download_full(resp.data.url);
+              this.completed_log = true;
+              return;
             }
 
             if (resp.data.lastchunk) {
@@ -174,9 +177,11 @@
           })
           .finally(() => {
             setTimeout(() => {
-              if (!this.completed) {
-                this.fetch_log();
+              if (this.completed_log) {
+                return;
               }
+
+              this.fetch_log();
             }, 3000);
           });
       }
