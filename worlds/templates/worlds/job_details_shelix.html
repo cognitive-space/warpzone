@@ -93,14 +93,7 @@
         }, 500);
       },
       worker() {
-        if (this.editor) {
-          var session = this.editor.getSession();
-          session.setValue(this.filtered_content);
-
-          if (this.autoscroll) {
-            this.scroll_bottom();
-          }
-        }
+        this.set_text();
       }
     },
     methods: {
@@ -110,6 +103,32 @@
       scroll_bottom() {
         var lines = this.editor.session.doc.getAllLines();
         this.editor.renderer.scrollToLine(lines.length - 1);
+      },
+      set_text() {
+        if (this.editor) {
+          var session = this.editor.getSession();
+          session.setValue(this.filtered_content);
+
+          if (this.autoscroll) {
+            this.scroll_bottom();
+          }
+        }
+      },
+      download_full(url) {
+        axios.get(url)
+          .then((resp) => {
+            this.full_content = resp.data;
+            var matches = resp.data.match(/^\S+\[\S+\]/gm);
+            matches.forEach((m) => {
+              if (this.workers.indexOf(m) == -1) {
+                this.workers.push(m);
+              }
+            });
+            this.set_text();
+          })
+          .catch((e) => {
+            alert(e);
+          });
       },
       fetch_log() {
         if (!this.editor) {
@@ -125,6 +144,10 @@
         };
         axios.get('./shelix-logs/', {params})
           .then((resp) => {
+            if (resp.data.url) {
+              return this.download_full(resp.data.url);
+            }
+
             if (resp.data.lastchunk) {
               this.after = resp.data.lastchunk;
             }
@@ -144,12 +167,7 @@
               }
             });
 
-            var session = this.editor.getSession();
-            session.setValue(this.filtered_content);
-
-            if (this.autoscroll) {
-              this.scroll_bottom();
-            }
+            this.set_text();
           })
           .catch((e) => {
             console.error(e);

@@ -43,6 +43,12 @@ def job_shelix_log(request, jid):
     job = get_object_or_404(Job, id=jid)
 
     after = request.GET.get('after', '')
+
+    completed = CompletedLog.objects.filter(job=job).first()
+
+    if completed:
+        return http.JsonResponse({'url': completed.log_file.url})
+
     text, lastchunk, endlog = StarHelixApi.read_log(job.shelix_log_id, after)
     return http.JsonResponse({
         'text': text,
