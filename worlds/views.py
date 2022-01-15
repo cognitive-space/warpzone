@@ -47,7 +47,10 @@ def job_shelix_log(request, jid):
     completed = CompletedLog.objects.filter(job=job).first()
 
     if completed:
-        return http.JsonResponse({'url': completed.log_file.url})
+        return http.JsonResponse({
+            'job': job.to_json(),
+            'url': completed.log_file.url
+        })
 
     text, lastchunk, endlog = StarHelixApi.read_log(job.shelix_log_id, after)
     return http.JsonResponse({

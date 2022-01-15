@@ -145,7 +145,13 @@
         };
         axios.get('./shelix-logs/', {params})
           .then((resp) => {
+            this.job = resp.data.job;
+
             if (resp.data.url) {
+              if (this.completed_log) {
+                return;
+              }
+
               this.download_full(resp.data.url);
               this.completed_log = true;
               return;
@@ -154,8 +160,6 @@
             if (resp.data.lastchunk) {
               this.after = resp.data.lastchunk;
             }
-
-            this.job = resp.data.job;
 
             if (!resp.data.text) {
               return;
@@ -177,7 +181,7 @@
           })
           .finally(() => {
             setTimeout(() => {
-              if (this.completed_log) {
+              if (this.completed) {
                 return;
               }
 
