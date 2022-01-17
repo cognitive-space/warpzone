@@ -36,6 +36,9 @@ def update_job_status(jid):
                 else:
                     raise
 
+            else:
+                raise
+
 
 @db_periodic_task(crontab(minute='*'))
 def init_job_checks_launcher():

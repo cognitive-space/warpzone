@@ -141,6 +141,11 @@ class NodePool(models.Model):
 
 
 class Pipeline(models.Model):
+    LOGGING = (
+        ('kube', 'Kubernetes'),
+        ('shelix', 'Star Helix'),
+    )
+
     name = models.CharField(max_length=70)
     slug = models.SlugField(max_length=70, unique=True)
 
@@ -160,6 +165,7 @@ class Pipeline(models.Model):
     force_scaling = models.JSONField(blank=True, null=True)
 
     s3_storage_url = models.CharField(max_length=255, blank=True, null=True)
+    logging = models.CharField(max_length=10, choices=LOGGING, default='kube')
 
     cluster = models.ForeignKey(Cluster, on_delete=models.CASCADE, blank=True, null=True)
 
@@ -369,7 +375,7 @@ class Job(models.Model):
         job_path = self.job_name
         local_envs = {}
 
-        if settings.SHELIX_ENABLED:
+        if settings.SHELIX_ENABLED and self.pipeline.logging == 'shelix':
             data = StarHelixApi.start_log(self.job_name)
             self.shelix_log_id = str(data['log_id'])
             self.save()
@@ -491,7 +497,7 @@ class Job(models.Model):
                 if exc.status == 404:
                     self.status = 'killed'
                     self.save()
-                    self.end_logs()
+                    self.save_logs(client)
                     break
 
                 else:
@@ -501,7 +507,6 @@ class Job(models.Model):
 
             if self.status in self.STATUS_DONE:
                 try:
-                    self.end_logs()
                     self.save_logs(client)
 
                 except:
@@ -555,7 +560,12 @@ class Job(models.Model):
 
     def get_pods(self, client):
         core_v1 = kube_apis.CoreV1Api(client)
-        uid = self.job_definition['metadata']['labels']["controller-uid"]
+        try:
+            uid = self.job_definition['metadata']['labels']["controller-uid"]
+
+        except TypeError:
+            return []
+
         pods_list = core_v1.list_namespaced_pod(
             namespace="default", label_selector=f"controller-uid={uid}", timeout_seconds=10)
         logger.info('Pod Count: {}', len(pods_list.items))
@@ -568,7 +578,16 @@ class Job(models.Model):
 
     def save_logs(self, client):
         if self.shelix_log_id:
-            return
+            return self.end_logs()
+
+        elif self.status == 'killed':
+            for slog in StreamLog.objects.filter(job=self):
+                log = CompletedLog.objects.filter(job=self, pod=slog.pod).first()
+                if not log:
+                    log = CompletedLog(job=self, pod=slog.pod)
+
+                log.log_file = slog.log_file
+                log.save()
 
         else:
             core_v1 = kube_apis.CoreV1Api(client)
@@ -600,8 +619,23 @@ class Job(models.Model):
 
         v1 = kube_apis.CoreV1Api(client)
         w = kube_watch.Watch()
-        for e in w.stream(v1.read_namespaced_pod_log, name=pod_name, namespace='default'):
-            yield e
+
+        try:
+            for e in w.stream(v1.read_namespaced_pod_log, name=pod_name, namespace='default'):
+                yield e
+
+        except ApiException as exc:
+            if exc.status == 400:
+                if 'ContainerCreating' in json.loads(exc.body.decode())['message']:
+                    self.status = 'downloading'
+                    self.save()
+                    self.log('warpzone[server]: Waiting for container creation\n')
+
+                else:
+                    raise
+
+            else:
+                raise
 
 
 class CompletedLog(models.Model):

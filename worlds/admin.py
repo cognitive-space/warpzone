@@ -45,6 +45,7 @@ class JobAdmin(admin.ModelAdmin):
         JSONField: {'widget': JSONEditorWidget(options={'mode': 'view'})},
     }
 
+    raw_id_fields = ('pipeline',)
     readonly_fields = ('succeeded', 'failed', 'status')
 
     def _actions(self, obj):
