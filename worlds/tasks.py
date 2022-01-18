@@ -139,6 +139,7 @@ def end_shelix_log(job_id):
 
             time.sleep(0.1)
 
+        content = content.encode()
         log = CompletedLog(job=job)
         log.log_file.save(f'{job.job_name}.completed.log', content=ContentFile(content), save=False)
         log.save()
