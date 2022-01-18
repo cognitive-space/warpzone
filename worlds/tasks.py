@@ -27,16 +27,20 @@ def update_job_status(jid):
             job.update_status(logs=True)
 
         except ApiException as exc:
+            msg = exc.body.decode()
+
             if exc.status == 400:
-                if 'ContainerCreating' in json.loads(exc.body.decode())['message']:
+                if 'ContainerCreating' in json.loads(msg)['message']:
                     job.status = 'downloading'
                     job.save()
-                    job.log('warpzone[server]: Waiting for container creation\n')
+                    job.log('Waiting for container creation\n')
 
                 else:
+                    job.log(f'Error: {msg}\n')
                     raise
 
             else:
+                job.log(f'Error: {msg}\n')
                 raise
 
 

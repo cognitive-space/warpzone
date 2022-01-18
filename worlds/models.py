@@ -1,3 +1,4 @@
+import datetime
 import io
 import json
 import time
@@ -524,7 +525,11 @@ class Job(models.Model):
 
     def log(self, text):
         if self.shelix_log_id:
-            StarHelixApi.save_log(self.shelix_log_id, text)
+            now = datetime.datetime.now(datetime.timezone.utc)
+            StarHelixApi.save_log(
+                self.shelix_log_id,
+                f'warpzone[server]: {now.isoformat()}: {text}'
+            )
 
     def end_logs(self):
         if self.shelix_log_id:
@@ -627,16 +632,20 @@ class Job(models.Model):
                 yield e
 
         except ApiException as exc:
+            msg = exc.body.decode()
+
             if exc.status == 400:
-                if 'ContainerCreating' in json.loads(exc.body.decode())['message']:
+                if 'ContainerCreating' in json.loads(msg)['message']:
                     self.status = 'downloading'
                     self.save()
-                    self.log('warpzone[server]: Waiting for container creation\n')
+                    self.log('Waiting for container creation\n')
 
                 else:
+                    self.log(f'Error: {msg}\n')
                     raise
 
             else:
+                self.log(f'Error: {msg}\n')
                 raise
 
 
