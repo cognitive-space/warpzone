@@ -384,6 +384,7 @@ class Job(models.Model):
             local_envs['SHELIX_TOKEN'] = settings.SHELIX_TOKEN
             local_envs['SHELIX_PREFIX'] = 'worker'
             local_envs['SHELIX_TS_PREFIX'] = '1'
+            local_envs['SHELIX_STORE_PREFIX'] = '1'
             local_envs['PYTHONUNBUFFERED'] = '1'
 
         ret = {
