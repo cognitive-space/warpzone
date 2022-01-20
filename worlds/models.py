@@ -158,7 +158,6 @@ class Pipeline(models.Model):
 
     memory_request = models.CharField(max_length=25, blank=True, null=True)
 
-    scale_down_delay = models.PositiveSmallIntegerField(default=1200)
     worker_node_selector = models.CharField(max_length=255, blank=True, null=True)
 
     config_old = EncryptedTextField(help_text='kube config file', blank=True, null=True)
