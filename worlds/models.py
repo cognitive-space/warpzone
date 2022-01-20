@@ -38,7 +38,7 @@ class Cluster(models.Model):
     slug = models.SlugField(max_length=70, unique=True)
     external_id = models.CharField(max_length=255)
     ctype = models.CharField('Cluster Type', max_length=5, choices=CLUSTER_TYPES)
-    scale_down_delay = models.PositiveSmallIntegerField(default=1200)
+    scale_down_delay = models.PositiveIntegerField(default=1200)
     active = models.BooleanField(default=True)
 
     config = EncryptedTextField(help_text='kube config file', blank=True, null=True)
