@@ -304,6 +304,7 @@ class Job(models.Model):
     job_name = models.CharField(max_length=255, blank=True, null=True)
     job_definition = models.JSONField(blank=True, null=True, encoder=DjangoJSONEncoder)
     shelix_log_id = models.CharField(max_length=255, blank=True, null=True)
+    port = models.PositiveIntegerField(blank=True, null=True)
 
     pipeline = models.ForeignKey(Pipeline, on_delete=models.CASCADE)
 
@@ -398,6 +399,11 @@ class Job(models.Model):
             'restartPolicy': 'OnFailure',
         }
 
+        if self.port:
+            # this is hack to get 1 pod per node
+            ret['containers'][0]['ports'] = [
+                {'hostPort': self.port, 'containerPort': self.port}
+            ]
 
         if self.pipeline.memory_request:
             ret['containers'][0]['resources'] = {'requests': {'memory': "23Gi"}}
