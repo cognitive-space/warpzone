@@ -6,12 +6,13 @@ from django.utils.html import mark_safe
 
 from django_json_widget.widgets import JSONEditorWidget
 
-from worlds.models import Pipeline, Job, StreamLog, CompletedLog, Cluster, NodePool
+from worlds.models import Pipeline, Job, StreamLog, CompletedLog, Cluster, JobType
 
 
-class PoolInline(admin.StackedInline):
-    model = NodePool
-    extra = 0
+@admin.register(JobType)
+class JobTypeAdmin(admin.ModelAdmin):
+    list_display = ('name', 'cpu_request', 'memory_request', 'cpu_limit', 'memory_limit')
+    search_fields = ('name',)
 
 
 @admin.register(Cluster)
@@ -19,8 +20,6 @@ class ClusterAdmin(admin.ModelAdmin):
     list_display = ('name', 'slug')
     search_fields = ('name', 'slug')
     save_as = True
-
-    inlines = [PoolInline]
 
 
 @admin.register(Pipeline)

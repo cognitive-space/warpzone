@@ -1,0 +1,31 @@
+FROM bitnami/minideb:bullseye
+
+ARG userid
+ARG groupid
+
+WORKDIR /root
+
+ENV PYTHONUNBUFFERED 1
+
+RUN install_packages python3-pip python3-venv
+
+# Extra container developer tools
+RUN install_packages procps nano sudo htop tmux redis-tools
+
+RUN pip3 install --upgrade pip
+
+RUN addgroup warpy --gid $groupid
+RUN useradd -ms /bin/bash -u $userid -g $groupid warpy
+RUN echo 'warpy ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+
+WORKDIR /home/warpy
+USER warpy
+
+# pdm install
+ENV PATH /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/warpy/.local/bin
+ENV HOME /home/warpy
+ENV USER warpy
+RUN pip3 install --user pipx
+RUN pipx ensurepath
+RUN pipx install pdm
+RUN pdm plugin add pdm-django

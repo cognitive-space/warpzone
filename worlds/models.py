@@ -38,7 +38,6 @@ class Cluster(models.Model):
     slug = models.SlugField(max_length=70, unique=True)
     external_id = models.CharField(max_length=255)
     ctype = models.CharField('Cluster Type', max_length=5, choices=CLUSTER_TYPES)
-    scale_down_delay = models.PositiveIntegerField(default=1200)
     active = models.BooleanField(default=True)
 
     config = EncryptedTextField(help_text='kube config file', blank=True, null=True)
@@ -46,100 +45,11 @@ class Cluster(models.Model):
     def __str__(self):
         return self.name
 
-    def scale_up(self):
-        for node_pool in self.nodepool_set.all():
-            node_pool.scale_up()
-
-        caches['default'].set(f'cluster-scale-up-{self.id}', True, 60 * 15)
-
-    def scale_down(self):
-        scaling_up = caches['default'].get(f'cluster-scale-up-{self.id}')
-        if scaling_up:
-            return None
-
-        for node_pool in self.nodepool_set.all():
-            node_pool.scale_down()
-
-    def needs_scale_down(self):
-        for pool in self.nodepool_set.all():
-            if pool.current_size > pool.scale_down_desired_size:
-                return True
-
-        return False
-
-    def needs_scale_up(self):
-        for pool in self.nodepool_set.all():
-            if pool.current_size < pool.scale_up_desired_size:
-                return True
-
-        return False
-
-    def warmed_up(self):
-        core_v1 = kube_apis.CoreV1Api(self.kube_client())
-        running = len(core_v1.list_node().items)
-        needed = 0
-        for pool in self.nodepool_set.all():
-            needed += pool.scale_up_desired_size
-
-        if running >= needed:
-            return True
-
-        return False
-
     def kube_client(self):
         client_config = type.__call__(Configuration)
         loader = _get_kube_config_loader(config_dict=yaml.load(self.config, Loader=yaml.SafeLoader))
         loader.load_and_set(client_config)
         return ApiClient(configuration=client_config)
-
-
-class NodePool(models.Model):
-    name = models.CharField(max_length=70)
-    external_id = models.CharField(max_length=255)
-
-    scale_up_desired_size = models.PositiveSmallIntegerField(default=5)
-    scale_up_min_size = models.PositiveSmallIntegerField(default=5)
-    scale_up_max_size = models.PositiveSmallIntegerField(default=5)
-
-    scale_down_desired_size = models.PositiveSmallIntegerField(default=2)
-    scale_down_min_size = models.PositiveSmallIntegerField(default=2)
-    scale_down_max_size = models.PositiveSmallIntegerField(default=2)
-
-    current_size = models.PositiveSmallIntegerField(default=0)
-
-    cluster = models.ForeignKey(Cluster, on_delete=models.CASCADE)
-
-    def __str__(self):
-        return self.name
-
-    @property
-    def integration(self):
-        if self.cluster.ctype == 'eks':
-            return eks
-
-    def scale_up(self):
-        self.integration.scale(
-            self.cluster.external_id,
-            self.external_id,
-            self.scale_up_desired_size,
-            self.scale_up_min_size,
-            self.scale_up_max_size,
-        )
-
-        self.current_size = self.scale_up_desired_size
-        self.save()
-
-    def scale_down(self):
-        self.integration.scale(
-            self.cluster.external_id,
-            self.external_id,
-            self.scale_down_desired_size,
-            self.scale_down_min_size,
-            self.scale_down_max_size,
-        )
-
-        self.current_size = self.scale_down_desired_size
-        self.save()
 
 
 class Pipeline(models.Model):
@@ -155,11 +65,6 @@ class Pipeline(models.Model):
     pre_command = models.CharField(max_length=512, blank=True, null=True)
     post_command = models.CharField(max_length=512, blank=True, null=True)
     workers = models.PositiveSmallIntegerField()
-    port = models.PositiveIntegerField(blank=True, null=True)
-
-    memory_request = models.CharField(max_length=25, blank=True, null=True)
-
-    worker_node_selector = models.CharField(max_length=255, blank=True, null=True)
 
     config_old = EncryptedTextField(help_text='kube config file', blank=True, null=True)
     envs = EncryptedTextField(help_text='use .env format', blank=True, null=True)
@@ -280,6 +185,18 @@ class Pipeline(models.Model):
             return client.CloudPath(self.s3_storage_url)
 
 
+class JobType(models.Model):
+    name = models.CharField(max_length=70)
+    cpu_request = models.CharField(max_length=25, blank=True, null=True)
+    memory_request = models.CharField(max_length=25, blank=True, null=True)
+    cpu_limit = models.CharField(max_length=25, blank=True, null=True)
+    memory_limit = models.CharField(max_length=25, blank=True, null=True)
+    worker_node_selector = models.CharField(max_length=255, blank=True, null=True)
+
+    def __str__(self):
+        return self.name
+
+
 class Job(models.Model):
     STATUS = (
         ('created', 'Created'),
@@ -307,6 +224,7 @@ class Job(models.Model):
     shelix_log_id = models.CharField(max_length=255, blank=True, null=True)
 
     pipeline = models.ForeignKey(Pipeline, on_delete=models.CASCADE)
+    job_type = models.ForeignKey(JobType, blank=True, null=True, on_delete=models.SET_NULL)
 
     status = models.CharField(max_length=25, choices=STATUS, default='created')
 
@@ -399,18 +317,27 @@ class Job(models.Model):
             'restartPolicy': 'OnFailure',
         }
 
-        if self.pipeline.port:
-            # this is hack to get 1 pod per node
-            ret['containers'][0]['ports'] = [
-                {'hostPort': self.pipeline.port, 'containerPort': self.pipeline.port}
-            ]
+        if self.job_type:
+            ret['containers'][0]['resources'] = {}
+            if self.job_type.memory_request or self.job_type.cpu_request:
+                ret['containers'][0]['resources']['requests'] = {}
+                if self.job_type.memory_request:
+                    ret['containers'][0]['resources']['requests']['memory'] = self.job_type.memory_request
 
-        if self.pipeline.memory_request:
-            ret['containers'][0]['resources'] = {'requests': {'memory': "23Gi"}}
+                if self.job_type.cpu_request:
+                    ret['containers'][0]['resources']['requests']['cpu'] = self.job_type.cpu_request
 
-        if self.pipeline.worker_node_selector:
-            key, value = self.pipeline.worker_node_selector.split('=')
-            ret['nodeSelector'] = {key: value}
+            if self.job_type.memory_limit or self.job_type.cpu_limit:
+                ret['containers'][0]['resources']['limits'] = {}
+                if self.job_type.memory_limit:
+                    ret['containers'][0]['resources']['limits']['memory'] = self.job_type.memory_limit
+
+                if self.job_type.cpu_limit:
+                    ret['containers'][0]['resources']['limits']['cpu'] = self.job_type.cpu_limit
+
+            if self.job_type.worker_node_selector:
+                key, value = self.pipeline.worker_node_selector.split('=')
+                ret['nodeSelector'] = {key: value}
 
         return ret
 

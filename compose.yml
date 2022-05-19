@@ -1,0 +1,39 @@
+version: "3.9"
+
+services:
+    warpzone:
+        network_mode: host
+        build:
+            context: .
+            dockerfile: Dockerfile.dev
+            args:
+                userid: $USERID
+                groupid: $GROUPID
+        command: /bin/bash
+        volumes:
+            - .:/home/warpy/warpzone
+            - ~/.git:/home/warpy/.git
+            - ~/.ssh:/home/warpy/.ssh
+        ports:
+            - 8000:8000
+        depends_on:
+            - redis
+            - postgresql
+        shm_size: 4gb
+    redis:
+        image: 'bitnami/redis:latest'
+        ports:
+            - 6379:6379
+        environment:
+            - ALLOW_EMPTY_PASSWORD=yes
+    postgresql:
+        image: postgis/postgis:13-master
+        restart: always
+        volumes:
+            - "$HOME/postgresql-data-warpzone:/var/lib/postgresql/data"
+        environment:
+            - POSTGRES_DB=warpzone
+            - POSTGRES_USER=postgres
+            - POSTGRES_PASSWORD=passyword
+        ports:
+            - 5432:5432

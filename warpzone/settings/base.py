@@ -86,7 +86,7 @@ WSGI_APPLICATION = 'warpzone.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
 
-DEFAULT_PG = 'postgres://%2Fvar%2Frun%2Fpostgresql/warpzone'
+DEFAULT_PG = 'postgres://postgres:passyword@localhost:5432/warpzone'
 DATABASES = {'default': dj_database_url.config(default=DEFAULT_PG)}
 
 
