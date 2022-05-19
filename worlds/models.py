@@ -137,6 +137,7 @@ class Pipeline(models.Model):
                 parallelism=self.workers,
                 pipeline=self,
                 envs=job_envs,
+                job_type_id=1,
             )
             qjob.save()
             qjob.run()
