@@ -13,7 +13,7 @@ from loguru import logger
 from kubernetes.client.exceptions import ApiException
 
 from warpzone.shelix_api import StarHelixApi
-from worlds.models import Job, Pipeline, StreamLog, Cluster, NodePool, CompletedLog
+from worlds.models import Job, Pipeline, StreamLog, Cluster, CompletedLog
 
 
 @db_task()
