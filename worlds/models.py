@@ -118,7 +118,7 @@ class Pipeline(models.Model):
 
         return ret
 
-    def start_pipeline(self, image, job_envs=None):
+    def start_pipeline(self, image, job_type, job_envs=None):
         qjob = Job.objects.filter(
             image=image,
             status__in=Job.STATUS_RUNNING,
@@ -137,7 +137,7 @@ class Pipeline(models.Model):
                 parallelism=self.workers,
                 pipeline=self,
                 envs=job_envs,
-                job_type_id=1,
+                job_type=job_type,
             )
             qjob.save()
             qjob.run()

@@ -129,14 +129,9 @@ def start_pipeline(request):
         image = request.POST['image']
         envs = request.POST.get('envs')
         pipeline = get_object_or_404(Pipeline, id=request.POST['pipeline'])
+        job_type = get_object_or_404(JobType, id=request.POST['job_type'])
 
-        context = {
-            'pipeline': pipeline.id,
-            'image': image,
-            'envs': envs,
-        }
-
-        qjob = pipeline.start_pipeline(image, envs)
+        qjob = pipeline.start_pipeline(image, job_type, envs)
         return http.HttpResponseRedirect(f'/worlds/job/{qjob.id}/')
 
     pipelines = []
