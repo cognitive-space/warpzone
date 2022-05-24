@@ -1,7 +1,7 @@
 {% extends 'worlds/base.html' %}{% load worlds_tags %}
 {% block title %}Start A Pipeline | {{ block.super }}{% endblock %}
 {% block content %}
-<v-form action="./" method="POST" lazy-validation ref="form" @submit.prevent="do_submit()">
+<v-form action="./" method="POST" lazy-validation ref="form" @submit="do_submit(e)">
   {% csrf_token %}
   <v-card class="mx-auto my-12" max-width="800">
     <v-card-title>Start A Pipeline</v-card-title>
@@ -50,8 +50,10 @@
       }
     },
     methods: {
-      do_submit() {
-        this.$refs.form.validate();
+      do_submit(e) {
+        if (!this.$refs.form.validate()) {
+          e.preventDefault();
+        }
       }
     }
   };
