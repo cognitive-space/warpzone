@@ -46,7 +46,7 @@
               <td>{{ j.created|naturaltime }}</td>
               <td>
                 {% if not j.pipeline.running %}
-                <v-btn icon small href="/worlds/pipeline/start/?image={{ j.image|urlencode }}&pipeline={{ j.pipeline.id }}&envs={{ j.envs|default_if_none:''|urlencode }}"><v-icon class="mdi mdi-pipe"></v-icon></v-btn>
+                <v-btn icon small href="/worlds/pipeline/start/?image={{ j.image|urlencode }}&pipeline={{ j.pipeline.id }}&job_type={{ j.job_type.id }}&envs={{ j.envs|default_if_none:''|urlencode }}"><v-icon class="mdi mdi-pipe"></v-icon></v-btn>
                 {% endif %}
               </td>
             </tr>
