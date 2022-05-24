@@ -149,30 +149,6 @@ def end_shelix_log(job_id):
         log.save()
 
 
-@db_periodic_task(crontab(minute="*/15"))
-def scale_check():
-    for cluster in Cluster.objects.filter(active=True):
-        scale_down(cluster.id)
-
-
-@db_task(retries=5, retry_delay=30)
-def scale_down(cluster, waited=False):
-    cluster = Cluster.objects.filter(id=cluster).first()
-    if cluster:
-        if cluster.needs_scale_down():
-            job_count = 0
-            for pipeline in cluster.pipeline_set.all():
-                job_count += Job.objects.filter(pipeline=pipeline, status__in=Job.STATUS_RUNNING).count()
-
-            if job_count == 0:
-                if waited:
-                    logger.info('Scaling Down: {}', cluster)
-                    cluster.scale_down()
-
-                else:
-                    scale_down.schedule((cluster.id, True), delay=cluster.scale_down_delay)
-
-
 @db_periodic_task(crontab(hour='*/4', minute="0"))
 def cleanup():
     old = timezone.now() - datetime.timedelta(hours=24)
