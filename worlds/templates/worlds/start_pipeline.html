@@ -1,20 +1,23 @@
 {% extends 'worlds/base.html' %}{% load worlds_tags %}
 {% block title %}Start A Pipeline | {{ block.super }}{% endblock %}
 {% block content %}
-<form action="./" method="POST">
+<v-form action="./" method="POST" lazy-validation ref="form" @submit.prevent="do_submit()">
   {% csrf_token %}
   <v-card class="mx-auto my-12" max-width="800">
     <v-card-title>Start A Pipeline</v-card-title>
     <v-card-text>
       <v-container>
         <v-row>
-          <v-text-field label="Image" name="image" outlined required v-model="image"></v-text-field>
+          <v-text-field label="Image" name="image" outlined :rules="required" v-model="image"></v-text-field>
         </v-row>
         <v-row>
           <v-textarea name="envs" label="Custom ENVs (.env file format)" outlined v-model="envs"></v-textarea>
         </v-row>
         <v-row>
-          <v-select :items="pipelines" label="Pipeline" outlined name="pipeline" v-model="pipeline"></v-select>
+          <v-select :items="pipelines" label="Pipeline" outlined name="pipeline" v-model="pipeline" :rules="required"></v-select>
+        </v-row>
+        <v-row>
+          <v-select :items="job_types" label="Job Type" outlined name="job_type" v-model="job_type" :rules="required"></v-select>
         </v-row>
       </v-container>
     </v-card-text>
@@ -22,7 +25,7 @@
       <v-btn color="primary" type="Submit">Start</v-btn>
     </v-card-actions>
   </v-card>
-</form>
+</v-form>
 {% endblock %}
 {% block mixin %}
 <script>
@@ -31,14 +34,24 @@
       var params = new URLSearchParams(location.search);
       return {
         pipelines: {{ pipelines|json_data }},
+        job_types: {{ job_types|json_data }},
         pipeline: parseInt(params.get('pipeline') || '0'),
+        job_type: parseInt(params.get('job_type') || '0'),
         image: params.get('image') || '',
-        envs: params.get('envs') || ''
+        envs: params.get('envs') || '',
+        required: [
+          v => !!v || 'Field is required',
+        ]
       };
     },
     mounted() {
       if (this.pipelines.length && !this.pipeline) {
         this.pipeline = this.pipelines[0].value;
+      }
+    },
+    methods: {
+      do_submit() {
+        this.$refs.form.validate();
       }
     }
   };

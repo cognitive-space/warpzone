@@ -9,7 +9,7 @@ from django.shortcuts import get_object_or_404
 from django.core.paginator import Paginator
 
 from warpzone.shelix_api import StarHelixApi
-from worlds.models import Pipeline, Job, CompletedLog
+from worlds.models import Pipeline, Job, CompletedLog, JobType
 
 
 @login_required
@@ -143,8 +143,13 @@ def start_pipeline(request):
     for p in Pipeline.objects.all().order_by('name'):
         pipelines.append({'text': p.name, 'value': p.id})
 
+    job_types = []
+    for j in JobType.objects.all().order_by('name'):
+        job_types.append({'text': j.name, 'value': j.id})
+
     context = {
-        'pipelines': pipelines
+        'pipelines': pipelines,
+        'job_types': job_types,
     }
     return TemplateResponse(request, 'worlds/start_pipeline.html', context)
 
