@@ -66,7 +66,6 @@ class Pipeline(models.Model):
     post_command = models.CharField(max_length=512, blank=True, null=True)
     workers = models.PositiveSmallIntegerField()
 
-    config_old = EncryptedTextField(help_text='kube config file', blank=True, null=True)
     envs = EncryptedTextField(help_text='use .env format', blank=True, null=True)
 
     force_scaling = models.JSONField(blank=True, null=True)
