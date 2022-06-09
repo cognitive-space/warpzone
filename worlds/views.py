@@ -9,7 +9,7 @@ from django.shortcuts import get_object_or_404
 from django.core.paginator import Paginator
 
 from warpzone.shelix_api import StarHelixApi
-from worlds.models import Pipeline, Job, CompletedLog
+from worlds.models import Pipeline, Job, CompletedLog, JobType
 
 
 @login_required
@@ -129,34 +129,22 @@ def start_pipeline(request):
         image = request.POST['image']
         envs = request.POST.get('envs')
         pipeline = get_object_or_404(Pipeline, id=request.POST['pipeline'])
+        job_type = get_object_or_404(JobType, id=request.POST['job_type'])
 
-        context = {
-            'pipeline': pipeline.id,
-            'image': image,
-            'envs': envs,
-        }
-        if pipeline.cluster.needs_scale_up():
-            pipeline.cluster.scale_up()
-            return TemplateResponse(request, 'worlds/warmup_cluster.html', context)
-
-        if not pipeline.cluster.warmed_up():
-            context['warmup'] = True
-            return TemplateResponse(request, 'worlds/warmup_cluster.html', context)
-
-        warmup_hold = request.POST.get('warmup')
-        if warmup_hold:
-            context['wait'] = True
-            return TemplateResponse(request, 'worlds/warmup_cluster.html', context)
-
-        qjob = pipeline.start_pipeline(image, envs)
+        qjob = pipeline.start_pipeline(image, job_type, envs)
         return http.HttpResponseRedirect(f'/worlds/job/{qjob.id}/')
 
     pipelines = []
     for p in Pipeline.objects.all().order_by('name'):
         pipelines.append({'text': p.name, 'value': p.id})
 
+    job_types = []
+    for j in JobType.objects.all().order_by('name'):
+        job_types.append({'text': j.name, 'value': j.id})
+
     context = {
-        'pipelines': pipelines
+        'pipelines': pipelines,
+        'job_types': job_types,
     }
     return TemplateResponse(request, 'worlds/start_pipeline.html', context)
 
