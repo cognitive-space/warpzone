@@ -255,6 +255,22 @@ class Job(models.Model):
 
         return False
 
+    @property
+    def image_tag(self):
+        parts = self.image.split(':')
+        if len(parts) == 3:
+            return parts[-1]
+
+        return 'none'
+
+    @property
+    def image_name(self):
+        parts = self.image.split(':')
+        if len(parts) == 3:
+            return parts[1][4:]
+
+        return self.image
+
     def to_json(self):
         return {
             'job_name': self.job_name,
@@ -307,6 +323,14 @@ class Job(models.Model):
             local_envs['PYTHONUNBUFFERED'] = '1'
 
         ret = {
+            'metadata': {
+                'name': self.job_name,
+                'annotations': {
+                    'pipeline': self.pipeline.slug,
+                    'tag': self.image_tag,
+                    'image': self.image_name,
+                }
+            },
             'imagePullSecrets': [{'name': 'regcred'}], # todo: abstract for user input
             'containers': [{
                 'name': self.job_name,
